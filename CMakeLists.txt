@@ -22,7 +22,7 @@ set(SOURCES
     src/utils.cpp
 
     # Libs
-    
+    src/libs/tinyxml2.cpp
 
     # Data objects
     
