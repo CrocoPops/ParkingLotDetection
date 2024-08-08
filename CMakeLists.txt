@@ -20,6 +20,7 @@ endif()
 set(SOURCES
     src/main.cpp
     src/utils.cpp
+    src/parkingdetection.cpp
 
     # Libs
     src/libs/tinyxml2.cpp
