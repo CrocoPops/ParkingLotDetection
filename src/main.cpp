@@ -1,8 +1,9 @@
 #include <opencv2/opencv.hpp>
-#include "libs/tinyxml2.h"
 #include <string>
 #include <iostream>
 #include <vector>
+#include "libs/tinyxml2.h"
+#include "utils.h"
 #include "ParkingDetection.h"
 
 using namespace cv;
@@ -15,6 +16,15 @@ int main(int argc, char** argv) {
         std::cerr << "Invalid input" << std::endl;
         return 1;
     }
+
+    // Show real image bounding box
+    Mat realBBoxes = parking.clone();
+    string filename = "../dataset/sequence0/bounding_boxes/2013-02-24_15_10_09.xml";
+    vector<BBox> bboxes = parseParkingXML(filename);
+    for (const auto& bbox : bboxes) {
+        drawRotatedRectangle(realBBoxes, bbox.getRotatedRect());
+    }
+    imshow("Real bounding boxes", realBBoxes); 
 
     // PARKING DETECTION
     ParkingDetection pd;

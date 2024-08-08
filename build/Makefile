@@ -129,6 +129,30 @@ ParkingLot_analysis/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/build
 .PHONY : ParkingLot_analysis/fast
 
+src/dataobjects/bbox.o: src/dataobjects/bbox.cpp.o
+.PHONY : src/dataobjects/bbox.o
+
+# target to build an object file
+src/dataobjects/bbox.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/dataobjects/bbox.cpp.o
+.PHONY : src/dataobjects/bbox.cpp.o
+
+src/dataobjects/bbox.i: src/dataobjects/bbox.cpp.i
+.PHONY : src/dataobjects/bbox.i
+
+# target to preprocess a source file
+src/dataobjects/bbox.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/dataobjects/bbox.cpp.i
+.PHONY : src/dataobjects/bbox.cpp.i
+
+src/dataobjects/bbox.s: src/dataobjects/bbox.cpp.s
+.PHONY : src/dataobjects/bbox.s
+
+# target to generate assembly for a file
+src/dataobjects/bbox.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/dataobjects/bbox.cpp.s
+.PHONY : src/dataobjects/bbox.cpp.s
+
 src/libs/tinyxml2.o: src/libs/tinyxml2.cpp.o
 .PHONY : src/libs/tinyxml2.o
 
@@ -234,6 +258,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... ParkingLot_analysis"
+	@echo "... src/dataobjects/bbox.o"
+	@echo "... src/dataobjects/bbox.i"
+	@echo "... src/dataobjects/bbox.s"
 	@echo "... src/libs/tinyxml2.o"
 	@echo "... src/libs/tinyxml2.i"
 	@echo "... src/libs/tinyxml2.s"

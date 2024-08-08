@@ -26,6 +26,7 @@ set(SOURCES
     src/libs/tinyxml2.cpp
 
     # Data objects
+    src/dataobjects/bbox.cpp
     
 )
 
