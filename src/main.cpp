@@ -11,16 +11,27 @@ using namespace std;
 using namespace tinyxml2;
 
 int main(int argc, char** argv) {
-    cv::Mat parking = cv::imread("../dataset/sequence0/frames/2013-02-24_15_10_09.jpg");
+
+    if(argc != 3){
+        std::cerr << "Invalid params! Usage: ./ParkingLot_analysis <sequence> <datetime>" << std::endl;
+        return -1;
+    }
+
+    string sequence = argv[1];
+    string datetime = argv[2];
+
+    string imagePath = "../dataset/sequence" + sequence + "/frames/" + datetime + ".jpg";
+    string bboxesPath = "../dataset/sequence" + sequence + "/bounding_boxes/" + datetime + ".xml";
+
+    cv::Mat parking = cv::imread(imagePath);
     if (parking.empty()) {
         std::cerr << "Invalid input" << std::endl;
-        return 1;
+        return -1;
     }
 
     // Show real image bounding box
     Mat realBBoxes = parking.clone();
-    string filename = "../dataset/sequence0/bounding_boxes/2013-02-24_15_10_09.xml";
-    vector<BBox> bboxes = parseParkingXML(filename);
+    vector<BBox> bboxes = parseParkingXML(bboxesPath);
     for (const auto& bbox : bboxes) {
         drawRotatedRectangle(realBBoxes, bbox.getRotatedRect());
     }
