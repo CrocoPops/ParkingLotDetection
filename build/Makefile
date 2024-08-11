@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/manuz/CV/ParkingLotDetection
+CMAKE_SOURCE_DIR = /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/manuz/CV/ParkingLotDetection/build
+CMAKE_BINARY_DIR = /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/manuz/CV/ParkingLotDetection/build/CMakeFiles /home/manuz/CV/ParkingLotDetection/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build/CMakeFiles /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/manuz/CV/ParkingLotDetection/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -152,6 +152,30 @@ src/bbox.s: src/bbox.cpp.s
 src/bbox.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/bbox.cpp.s
 .PHONY : src/bbox.cpp.s
+
+src/carsegmentation.o: src/carsegmentation.cpp.o
+.PHONY : src/carsegmentation.o
+
+# target to build an object file
+src/carsegmentation.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/carsegmentation.cpp.o
+.PHONY : src/carsegmentation.cpp.o
+
+src/carsegmentation.i: src/carsegmentation.cpp.i
+.PHONY : src/carsegmentation.i
+
+# target to preprocess a source file
+src/carsegmentation.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/carsegmentation.cpp.i
+.PHONY : src/carsegmentation.cpp.i
+
+src/carsegmentation.s: src/carsegmentation.cpp.s
+.PHONY : src/carsegmentation.s
+
+# target to generate assembly for a file
+src/carsegmentation.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/carsegmentation.cpp.s
+.PHONY : src/carsegmentation.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
@@ -261,6 +285,9 @@ help:
 	@echo "... src/bbox.o"
 	@echo "... src/bbox.i"
 	@echo "... src/bbox.s"
+	@echo "... src/carsegmentation.o"
+	@echo "... src/carsegmentation.i"
+	@echo "... src/carsegmentation.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

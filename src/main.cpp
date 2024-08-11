@@ -2,46 +2,112 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <filesystem>
 #include "tinyxml2.h"
 #include "utils.h"
 #include "parkingdetection.h"
+#include "carsegmentation.h"
 
 using namespace cv;
 using namespace std;
 using namespace tinyxml2;
 
+namespace fs = std::filesystem;
+
 int main(int argc, char** argv) {
 
-    if(argc != 3){
-        std::cerr << "Invalid params! Usage: ./ParkingLot_analysis <sequence> <datetime>" << std::endl;
-        return -1;
+    // Image loading
+    string path;
+    std::vector<std::vector<cv::Mat>> parkingImages;
+    for(int i = 0; i <= 5; i++) {
+        path = "dataset/sequence" + std::to_string(i) + "/frames";
+        if (fs::exists(path) && fs::is_directory(path)) {
+            std::vector<cv::Mat> images;
+            for (const auto& entry : fs::directory_iterator(path)) {
+                cv::Mat image = cv::imread(entry.path().string());
+                if (!image.empty()) {
+                    images.push_back(image);
+                }
+            }
+            parkingImages.push_back(images);
+        } else {
+            std::cerr << "Directory does not exist or is not a directory." << std::endl;
+        }
+    }
+    // Masks loading
+    std::vector<std::vector<cv::Mat>> parkingMasks;
+    for(int i = 1; i <= 5; i++) {
+        path = "dataset/sequence" + std::to_string(i) + "/masks";
+        if (fs::exists(path) && fs::is_directory(path)) {
+            std::vector<cv::Mat> masks;
+            for (const auto& entry : fs::directory_iterator(path)) {
+                cv::Mat mask = cv::imread(entry.path().string());
+                if (!mask.empty()) {
+                    masks.push_back(mask);
+                }
+            }
+            parkingMasks.push_back(masks);
+        } else {
+            std::cerr << "Directory does not exist or is not a directory." << std::endl;
+        }
     }
 
-    string sequence = argv[1];
-    string datetime = argv[2];
-
-    string imagePath = "dataset/sequence" + sequence + "/frames/" + datetime + ".jpg";
-    string bboxesPath = "dataset/sequence" + sequence + "/bounding_boxes/" + datetime + ".xml";
-
-    cv::Mat parking = cv::imread(imagePath);
-    if (parking.empty()) {
-        std::cerr << "Invalid input" << std::endl;
-        return -1;
+    // Real bounding boxes paths
+    std::vector<std::vector<string>> bboxesPaths;
+    for(int i = 0; i <= 5; i++) {
+        path = "dataset/sequence" + std::to_string(i) + "/bounding_boxes";
+        if (fs::exists(path) && fs::is_directory(path)) {
+            std::vector<string> bboxes;
+            for (const auto& entry : fs::directory_iterator(path)) {
+                bboxes.push_back(entry.path().string());
+            }
+            bboxesPaths.push_back(bboxes);
+        } else {
+            std::cerr << "File does not exist." << std::endl;
+        }
     }
 
-    // Show real image bounding box
-    Mat realBBoxes = parking.clone();
-    vector<BBox> bboxes = parseParkingXML(bboxesPath);
-    for (const auto& bbox : bboxes) {
-        drawRotatedRectangle(realBBoxes, bbox.getRotatedRect());
-    }
-    imshow("Real bounding boxes", realBBoxes); 
 
     // PARKING DETECTION
-    ParkingDetection pd;
-    pd.detect(parking);
-    pd.draw(parking);
-    cv::imshow("Parking", parking);
+    for(int i = 0; i < parkingImages[0].size(); i++) {
+        cv::Mat empty_parking = parkingImages[0][i];
+        if (empty_parking.empty()) {
+            std::cerr << "Invalid input" << std::endl;
+            return -1;
+        }
+
+        // Show real image bounding box
+        Mat realBBoxes = empty_parking.clone();
+        vector<BBox> bboxes = parseParkingXML(bboxesPaths[0][i]);
+        for (const auto& bbox : bboxes) {
+            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect());
+        }
+        imshow("Real bounding boxes", realBBoxes); 
+
+        // PARKING DETECTION
+        ParkingDetection pd;
+        pd.detect(empty_parking);
+        pd.draw(empty_parking);
+        //cv::imshow("Parking", parking);
+    }
+    
+    // CAR SEGMENTATION
+    for(int i = 0; i < parkingImages[1].size(); i++) {
+        cv::Mat parking = parkingImages[1][i];
+        cv::Mat parking_mask = parkingMasks[0][i];
+        if (parking.empty()) {
+            std::cerr << "Invalid input" << std::endl;
+            return -1;
+        }
+        if(parking_mask.empty()){
+            std::cerr << "Invalid mask" << std::endl;
+            return -1;
+        }
+
+        CarSegmentation cs;
+        cs.detectCars(parking, parking_mask);
+    }
+
     return 0;
 
     // TODO: PARKING SPACES CLASSIFICATION
