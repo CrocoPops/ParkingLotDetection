@@ -4,7 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
-#include "dataobjects/bbox.h"
+#include "bbox.h"
 
 class ParkingDetection {
     private:

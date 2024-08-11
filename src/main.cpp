@@ -2,9 +2,9 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#include "libs/tinyxml2.h"
+#include "tinyxml2.h"
 #include "utils.h"
-#include "ParkingDetection.h"
+#include "parkingdetection.h"
 
 using namespace cv;
 using namespace std;
@@ -20,8 +20,8 @@ int main(int argc, char** argv) {
     string sequence = argv[1];
     string datetime = argv[2];
 
-    string imagePath = "../dataset/sequence" + sequence + "/frames/" + datetime + ".jpg";
-    string bboxesPath = "../dataset/sequence" + sequence + "/bounding_boxes/" + datetime + ".xml";
+    string imagePath = "dataset/sequence" + sequence + "/frames/" + datetime + ".jpg";
+    string bboxesPath = "dataset/sequence" + sequence + "/bounding_boxes/" + datetime + ".xml";
 
     cv::Mat parking = cv::imread(imagePath);
     if (parking.empty()) {

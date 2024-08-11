@@ -23,15 +23,17 @@ set(SOURCES
     src/parkingdetection.cpp
 
     # Libs
-    src/libs/tinyxml2.cpp
+    src/tinyxml2.cpp
 
     # Data objects
-    src/dataobjects/bbox.cpp
+    src/bbox.cpp
     
 )
 
 # Add executable
 add_executable(ParkingLot_analysis ${SOURCES})
+
+set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/../)
 
 # Link libraries
 target_link_libraries(ParkingLot_analysis ${OpenCV_LIBS})

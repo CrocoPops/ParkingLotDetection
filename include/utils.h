@@ -3,8 +3,8 @@
 
 #include <opencv2/opencv.hpp>
 #include <vector>
-#include "libs/tinyxml2.h"
-#include "dataobjects/bbox.h"
+#include "tinyxml2.h"
+#include "bbox.h"
 
 using namespace cv;
 using namespace std;
