@@ -106,7 +106,8 @@ int main(int argc, char** argv) {
         }
 
         CarSegmentation cs;
-        cs.detectCars(parking, parking_mask, parkingImages[0][i]);
+        cs.detectCars(parking, parkingImages[0][i]);
+        // cs.detectCarsTrue(parking, parking_mask);
     }
 
     return 0;
