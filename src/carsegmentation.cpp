@@ -62,7 +62,7 @@ void CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
 }
 
 
-void CarSegmentation::detectCars(cv::Mat &frame, cv::Mat empty_parking) {
+cv::Mat CarSegmentation::detectCars(cv::Mat &frame, cv::Mat empty_parking) {
     cv::Mat frame_hsv, empty_parking_hsv;
     cv::cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
     cv::cvtColor(empty_parking, empty_parking_hsv, cv::COLOR_BGR2HSV);
@@ -123,6 +123,8 @@ void CarSegmentation::detectCars(cv::Mat &frame, cv::Mat empty_parking) {
     cv::imshow("Equalized Frame", frame_eq);
     cv::imshow("Result", result);
     cv::waitKey(0);
+
+    return mask;
 }
 
 

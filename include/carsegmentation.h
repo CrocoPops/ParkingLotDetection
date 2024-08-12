@@ -12,7 +12,7 @@ class CarSegmentation {
     public:
         CarSegmentation();
         ~CarSegmentation();
-        void detectCars(cv::Mat &frame, cv::Mat empty_parking);
+        cv::Mat detectCars(cv::Mat &frame, cv::Mat empty_parking);
         void detectCarsTrue(cv::Mat &frame, cv::Mat &mask);
 };
 #endif

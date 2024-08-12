@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
 
 
 
-    // PARKING DETECTION & CLASSIFICATION
+    // PARKING DETECTION & CLASSIFICATION REAL
     for(int i = 0; i < parkingImages[4].size(); i++) {
         cv::Mat parking = parkingImages[4][i];
         if (parking.empty()) {
@@ -119,7 +119,9 @@ int main(int argc, char** argv) {
             drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied());
         }
         imshow("Frame", parking);
-        imshow("Real bounding boxes", realBBoxes); 
+        imshow("Real bounding boxes", realBBoxes);
+
+         
 
        /* // PARKING DETECTION
         ParkingDetection pd;
@@ -131,6 +133,7 @@ int main(int argc, char** argv) {
     }
     
     // CAR SEGMENTATION
+    std::vector<cv::Mat> maskImagesObtained;
     for(int i = 0; i < parkingImages[4].size(); i++) {
     //for(int i = 0; i < 1; i++) {
         cv::Mat parking = parkingImages[4][i];
@@ -145,9 +148,48 @@ int main(int argc, char** argv) {
         }
 
         CarSegmentation cs;
-        cs.detectCars(parking, parkingImages[0][i]);
+        cv::Mat mask = cs.detectCars(parking, parkingImages[0][i]);
         //cs.detectCarsTrue(parking, parking_mask);
+
+        maskImagesObtained.push_back(mask);
     }
+
+    // PARKING DETECTION & CLASSIFICATION OUR MASKS
+    for(int i = 0; i < parkingImages[4].size(); i++) {
+        cv::Mat parking = parkingImages[4][i];
+        if (parking.empty()) {
+            std::cerr << "Invalid input" << std::endl;
+            return -1;
+        }
+
+        // Show real image bounding box with our mask
+        Mat realBBoxes = parking.clone();
+        vector<BBox> bboxes = parseParkingXML(bboxesPaths[4][i]);
+        for (auto& bbox : bboxes) {
+            bbox.setOccupiedfromObtainedMask(maskImagesObtained[i]);
+            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied());
+        }
+        imshow("Frame", parking);
+        imshow("Real bounding boxes with our mask", realBBoxes);
+
+         
+
+       /* // PARKING DETECTION
+        ParkingDetection pd;
+        pd.detect(parking);
+        pd.draw(parking);
+        */
+        waitKey(0);
+        cv::destroyAllWindows();
+    }
+
+
+
+
+
+
+
+
 
     return 0;
 

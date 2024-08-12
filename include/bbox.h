@@ -19,6 +19,7 @@ class BBox {
         double getAngle() const;
         bool isOccupied() const;
         void setOccupied(cv::Mat &mask);
+        void setOccupiedfromObtainedMask(cv::Mat &mask);
         cv::RotatedRect getRotatedRect() const;
 };
 #endif

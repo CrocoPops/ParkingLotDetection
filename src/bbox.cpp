@@ -68,6 +68,46 @@ void BBox::setOccupied(cv::Mat &mask) {
     }
 }
 
+
+void BBox::setOccupiedfromObtainedMask(cv::Mat &mask) {
+    int x = this->getX();
+    int y = this->getY();
+
+    // Check if the pixel at the center is occupied
+    uchar centerColor = mask.at<uchar>(y, x);
+    if(centerColor == 0) {
+        bool occupied = false;
+
+        // Check the neighbors pixels from the center
+        int Xradius = 50;
+        int Yradius = 15;
+        for (int dy = -Yradius; dy <= Yradius; dy++) {
+            for (int dx = -Xradius; dx <= Xradius; dx++) {
+                int nx = x + dx;
+                int ny = y + dy;
+                if (nx >= 0 && nx < mask.cols && ny >= 0 && ny < mask.rows) {
+                    uchar neighborColor = mask.at<uchar>(ny, nx);
+                    if (neighborColor == 255) {
+                        occupied = true;
+                        break;
+                    }
+                    
+                }
+            }
+            if (occupied) {
+                break;
+            }
+        }
+        
+        this->occupied = occupied;
+    } else {
+        // If the center pixel is not (0, 0, 0), it is occupied
+        this->occupied = true;
+    }
+    cv::imshow("mask", mask);
+
+}
+
 cv::RotatedRect BBox::getRotatedRect() const {
     return cv::RotatedRect(cv::Point2f(x, y), cv::Size2f(width, height), angle);
 }
