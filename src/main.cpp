@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
 
 
     // PARKING DETECTION
-    for(int i = 0; i < parkingImages[0].size(); i++) {
+    /*for(int i = 0; i < parkingImages[0].size(); i++) {
         cv::Mat empty_parking = parkingImages[0][i];
         if (empty_parking.empty()) {
             std::cerr << "Invalid input" << std::endl;
@@ -89,10 +89,11 @@ int main(int argc, char** argv) {
         pd.detect(empty_parking);
         pd.draw(empty_parking);
         //cv::imshow("Parking", parking);
-    }
+    }*/
     
     // CAR SEGMENTATION
     for(int i = 0; i < parkingImages[1].size(); i++) {
+    //for(int i = 0; i < 1; i++) {
         cv::Mat parking = parkingImages[1][i];
         cv::Mat parking_mask = parkingMasks[0][i];
         if (parking.empty()) {
@@ -105,7 +106,7 @@ int main(int argc, char** argv) {
         }
 
         CarSegmentation cs;
-        cs.detectCars(parking, parking_mask);
+        cs.detectCars(parking, parking_mask, parkingImages[0][i]);
     }
 
     return 0;

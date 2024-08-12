@@ -11,6 +11,6 @@ class CarSegmentation {
     public:
         CarSegmentation();
         ~CarSegmentation();
-        void detectCars(cv::Mat &frame, cv::Mat &mask);
+        void detectCars(cv::Mat &frame, cv::Mat &mask, cv::Mat empty_parking);
 };
 #endif
