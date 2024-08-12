@@ -52,16 +52,30 @@ int main(int argc, char** argv) {
 
     // Masks loading
     std::vector<std::vector<cv::Mat>> parkingMasks;
-    for(int i = 1; i <= 5; i++) {
+    for (int i = 1; i <= 5; i++) {
         path = "dataset/sequence" + std::to_string(i) + "/masks";
         if (fs::exists(path) && fs::is_directory(path)) {
             std::vector<cv::Mat> masks;
+            std::vector<std::string> maskPaths;
+
+            // Collect all mask paths
             for (const auto& entry : fs::directory_iterator(path)) {
-                cv::Mat mask = cv::imread(entry.path().string());
+                maskPaths.push_back(entry.path().string());
+            }
+
+            // Sort the paths by filename
+            std::sort(maskPaths.begin(), maskPaths.end());
+
+            // Load and store the masks in sorted order
+            for (const auto& maskPath : maskPaths) {
+                cv::Mat mask = cv::imread(maskPath);
                 if (!mask.empty()) {
                     masks.push_back(mask);
+                } else {
+                    std::cerr << "Warning: Unable to load mask from " << maskPath << std::endl;
                 }
             }
+            
             parkingMasks.push_back(masks);
         } else {
             std::cerr << "Directory does not exist or is not a directory." << std::endl;
@@ -74,7 +88,7 @@ int main(int argc, char** argv) {
         path = "dataset/sequence" + std::to_string(i) + "/bounding_boxes";
         if (fs::exists(path) && fs::is_directory(path)) {
             std::vector<string> bboxes;
-            for (const auto& entry : fs::directory_iterator(path)) {
+            for (auto& entry : fs::directory_iterator(path)) {
                 bboxes.push_back(entry.path().string());
             }
             // Sort the bounding box paths by filename
@@ -86,40 +100,41 @@ int main(int argc, char** argv) {
     }
 
 
-    // PARKING DETECTION
-    for(int i = 0; i < parkingImages[2].size(); i++) {
-        cv::Mat empty_parking = parkingImages[2][i];
-        if (empty_parking.empty()) {
+
+
+
+    // PARKING DETECTION & CLASSIFICATION
+    for(int i = 0; i < parkingImages[4].size(); i++) {
+        cv::Mat parking = parkingImages[4][i];
+        if (parking.empty()) {
             std::cerr << "Invalid input" << std::endl;
             return -1;
         }
 
         // Show real image bounding box
-        Mat realBBoxes = empty_parking.clone();
-        imshow("empty parking", empty_parking);
-        imshow("real bounding boxes", realBBoxes);
-        vector<BBox> bboxes = parseParkingXML(bboxesPaths[2][i]);
-
-        
-        for (const auto& bbox : bboxes) {
+        Mat realBBoxes = parking.clone();
+        vector<BBox> bboxes = parseParkingXML(bboxesPaths[4][i]);
+        for (auto& bbox : bboxes) {
+            bbox.setOccupied(parkingMasks[3][i]);
             drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied());
         }
+        imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes); 
 
-        /*
-        // PARKING DETECTION
+       /* // PARKING DETECTION
         ParkingDetection pd;
-        pd.detect(empty_parking);
-        pd.draw(empty_parking);
-        //cv::imshow("Parking", parking);
+        pd.detect(parking);
+        pd.draw(parking);
         */
+        waitKey(0);
+        cv::destroyAllWindows();
     }
     
     // CAR SEGMENTATION
-    for(int i = 0; i < parkingImages[1].size(); i++) {
+    for(int i = 0; i < parkingImages[4].size(); i++) {
     //for(int i = 0; i < 1; i++) {
-        cv::Mat parking = parkingImages[1][i];
-        cv::Mat parking_mask = parkingMasks[0][i];
+        cv::Mat parking = parkingImages[4][i];
+        cv::Mat parking_mask = parkingMasks[3][i];
         if (parking.empty()) {
             std::cerr << "Invalid input" << std::endl;
             return -1;
@@ -131,7 +146,7 @@ int main(int argc, char** argv) {
 
         CarSegmentation cs;
         cs.detectCars(parking, parkingImages[0][i]);
-        // cs.detectCarsTrue(parking, parking_mask);
+        //cs.detectCarsTrue(parking, parking_mask);
     }
 
     return 0;

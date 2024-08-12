@@ -10,14 +10,23 @@ using namespace tinyxml2;
 
 // Implement here the utility functions
 void drawRotatedRectangle(Mat& image, RotatedRect rect, bool occupied)
-{
-    Scalar color = occupied ? Scalar(0, 0, 255) : Scalar(255, 0, 0);
+{   
+    // 0 -> empty
+    // 1 -> occupied
+
+    Scalar color;
+
+    if(occupied)
+        color = Scalar(0, 0, 255); //red
+        
+    else
+        color = Scalar(255, 0, 0); //blue
 
     Point2f vertices2f[4];
     rect.points(vertices2f);
 
     Point vertices[4];    
-    for(int i = 0; i < 4; ++i)
+    for(int i = 0; i < 4; i++)
         vertices[i] = vertices2f[i];
 
     for (int i = 0; i < 4; i++)

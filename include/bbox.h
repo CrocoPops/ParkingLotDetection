@@ -18,6 +18,7 @@ class BBox {
         int getHeight() const;
         double getAngle() const;
         bool isOccupied() const;
+        void setOccupied(cv::Mat &mask);
         cv::RotatedRect getRotatedRect() const;
 };
 #endif
