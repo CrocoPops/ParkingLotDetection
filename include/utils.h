@@ -11,7 +11,7 @@ using namespace std;
 using namespace tinyxml2;
 
 // Define here the utility functions
-void drawRotatedRectangle(Mat& image, RotatedRect rect);
+void drawRotatedRectangle(Mat& image, RotatedRect rect, bool occupied);
 BBox parseBBox(XMLElement* space);
 vector<BBox> parseParkingXML(const string& filename);
 

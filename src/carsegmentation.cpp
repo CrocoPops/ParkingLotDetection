@@ -71,15 +71,22 @@ void CarSegmentation::detectCars(cv::Mat &frame, cv::Mat empty_parking) {
     cv::split(frame_hsv, frame_channels);
     cv::split(empty_parking_hsv, empty_parking_channels);
 
-    cv::Mat frame_eq, empty_parking_eq;
-    cv::equalizeHist(frame_channels[2], frame_eq);
-    cv::equalizeHist(empty_parking_channels[2], empty_parking_eq);
+    cv::Mat frame_value_eq, empty_parking_value_eq, frame_saturation_eq, empty_parking_saturation_eq;
+    cv::equalizeHist(frame_channels[2], frame_value_eq);
+    cv::equalizeHist(empty_parking_channels[2], empty_parking_value_eq);
 
-    frame_channels[2] = frame_eq;
-    empty_parking_channels[2] = empty_parking_eq;
+    cv::equalizeHist(frame_channels[1], frame_saturation_eq);
+    cv::equalizeHist(empty_parking_channels[1], empty_parking_saturation_eq);
+
+
+    frame_channels[1] = frame_saturation_eq;
+    frame_channels[2] = frame_value_eq;
+    empty_parking_channels[1] = empty_parking_saturation_eq;
+    empty_parking_channels[2] = empty_parking_value_eq;
     cv::merge(frame_channels, frame_hsv);
     cv::merge(empty_parking_channels, empty_parking_hsv);
 
+    cv::Mat frame_eq, empty_parking_eq;
     cv::cvtColor(frame_hsv, frame_eq, cv::COLOR_HSV2BGR);
     cv::cvtColor(empty_parking_hsv, empty_parking_eq, cv::COLOR_HSV2BGR);
 
@@ -113,6 +120,7 @@ void CarSegmentation::detectCars(cv::Mat &frame, cv::Mat empty_parking) {
     cv::imshow("Frame", frame);
     cv::imshow("Empty Parking", empty_parking);
     cv::imshow("Mask", mask);
+    cv::imshow("Equalized Frame", frame_eq);
     cv::imshow("Result", result);
     cv::waitKey(0);
 }

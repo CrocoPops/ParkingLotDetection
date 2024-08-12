@@ -9,9 +9,9 @@ using namespace std;
 using namespace tinyxml2;
 
 // Implement here the utility functions
-void drawRotatedRectangle(Mat& image, RotatedRect rect)
+void drawRotatedRectangle(Mat& image, RotatedRect rect, bool occupied)
 {
-    Scalar color = Scalar(0.0, 0.0, 255.0);
+    Scalar color = occupied ? Scalar(0, 0, 255) : Scalar(255, 0, 0);
 
     Point2f vertices2f[4];
     rect.points(vertices2f);

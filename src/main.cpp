@@ -19,21 +19,37 @@ int main(int argc, char** argv) {
     // Image loading
     string path;
     std::vector<std::vector<cv::Mat>> parkingImages;
-    for(int i = 0; i <= 5; i++) {
+
+    for (int i = 0; i <= 5; i++) {
         path = "dataset/sequence" + std::to_string(i) + "/frames";
         if (fs::exists(path) && fs::is_directory(path)) {
             std::vector<cv::Mat> images;
+            std::vector<std::string> imagePaths;
+
+            // Collect all image paths
             for (const auto& entry : fs::directory_iterator(path)) {
-                cv::Mat image = cv::imread(entry.path().string());
+                imagePaths.push_back(entry.path().string());
+            }
+
+            // Sort image paths by filename
+            std::sort(imagePaths.begin(), imagePaths.end());
+
+            // Load images in sorted order
+            for (const auto& imagePath : imagePaths) {
+                cv::Mat image = cv::imread(imagePath);
                 if (!image.empty()) {
                     images.push_back(image);
+                } else {
+                    std::cerr << "Failed to load image: " << imagePath << std::endl;
                 }
             }
+
             parkingImages.push_back(images);
         } else {
-            std::cerr << "Directory does not exist or is not a directory." << std::endl;
+            std::cerr << "Directory does not exist or is not a directory: " << path << std::endl;
         }
     }
+
     // Masks loading
     std::vector<std::vector<cv::Mat>> parkingMasks;
     for(int i = 1; i <= 5; i++) {
@@ -61,6 +77,8 @@ int main(int argc, char** argv) {
             for (const auto& entry : fs::directory_iterator(path)) {
                 bboxes.push_back(entry.path().string());
             }
+            // Sort the bounding box paths by filename
+            std::sort(bboxes.begin(), bboxes.end());
             bboxesPaths.push_back(bboxes);
         } else {
             std::cerr << "File does not exist." << std::endl;
@@ -69,8 +87,8 @@ int main(int argc, char** argv) {
 
 
     // PARKING DETECTION
-    /*for(int i = 0; i < parkingImages[0].size(); i++) {
-        cv::Mat empty_parking = parkingImages[0][i];
+    for(int i = 0; i < parkingImages[2].size(); i++) {
+        cv::Mat empty_parking = parkingImages[2][i];
         if (empty_parking.empty()) {
             std::cerr << "Invalid input" << std::endl;
             return -1;
@@ -78,18 +96,24 @@ int main(int argc, char** argv) {
 
         // Show real image bounding box
         Mat realBBoxes = empty_parking.clone();
-        vector<BBox> bboxes = parseParkingXML(bboxesPaths[0][i]);
+        imshow("empty parking", empty_parking);
+        imshow("real bounding boxes", realBBoxes);
+        vector<BBox> bboxes = parseParkingXML(bboxesPaths[2][i]);
+
+        
         for (const auto& bbox : bboxes) {
-            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect());
+            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied());
         }
         imshow("Real bounding boxes", realBBoxes); 
 
+        /*
         // PARKING DETECTION
         ParkingDetection pd;
         pd.detect(empty_parking);
         pd.draw(empty_parking);
         //cv::imshow("Parking", parking);
-    }*/
+        */
+    }
     
     // CAR SEGMENTATION
     for(int i = 0; i < parkingImages[1].size(); i++) {
