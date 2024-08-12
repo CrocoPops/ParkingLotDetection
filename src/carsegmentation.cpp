@@ -4,6 +4,47 @@ CarSegmentation::CarSegmentation() {}
 
 CarSegmentation::~CarSegmentation() {}
 
+void CarSegmentation::regionGrowing(cv::Mat &frame, cv::Mat &mask, cv::Mat &result) {
+    //result = cv::Mat::zeros(frame.size(), CV_8UC3);
+
+    cv::Mat frame_gray;
+    cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
+
+    std::vector<cv::Point> directions = {cv::Point(-1, 0), cv::Point(1, 0), cv::Point(0, -1), cv::Point(0, 1)};
+    cv::Mat visited = cv::Mat::zeros(frame.size(), CV_8UC1);
+
+    std::queue<cv::Point> queue;
+
+    for(int x = 0; x < mask.rows; x++) {
+        for(int y = 0; y < mask.cols; y++) {
+            if(mask.at<uchar>(x, y) == 255 && visited.at<uchar>(x, y) == 0) {
+                queue.push(cv::Point(x, y));
+                visited.at<uchar>(x, y) = 255;
+                //std::cout << "Starting new region at (" << x << ", " << y << ") with queue size: " << queue.size() << std::endl;
+
+                while(!queue.empty()) {
+                    cv::Point current = queue.front();
+                    queue.pop();
+                    std::cout << "Processing pixel at (" << current.x << ", " << current.y << ")" << std::endl;
+                    result.at<cv::Vec3b>(current.x, current.y) = cv::Vec3b(0, 0, 255);
+                    for(cv::Point dir : directions) {
+                        cv::Point next = current + dir;
+                        if(next.x >= 0 && next.x < mask.rows && next.y >= 0 && next.y < mask.cols && visited.at<uchar>(next.x, next.y) == 0 && mask.at<uchar>(next.x, next.y) == 255) {
+                            int pixelDiff = std::abs(frame_gray.at<uchar>(current.x, current.y) - frame_gray.at<uchar>(next.x, next.y));
+                            std::cout << "Checking neighbor (" << next.x << ", " << next.y << ") with pixel diff: " << pixelDiff << std::endl;
+                            //std::cout << "Pixel diff at (" << next.x << ", " << next.y << ") = " << pixelDiff << std::endl;
+                            if(pixelDiff < 10) {
+                                queue.push(next);
+                                visited.at<uchar>(next.x, next.y) = 255;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     cv::Mat coloredMask = mask.clone();
     coloredMask.setTo(cv::Scalar(128, 128, 128), mask == 0);
@@ -19,6 +60,7 @@ void CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     cv::imshow("Contours", result);
     cv::waitKey(0);
 }
+
 
 void CarSegmentation::detectCars(cv::Mat &frame, cv::Mat empty_parking) {
     cv::Mat frame_hsv, empty_parking_hsv;
@@ -46,20 +88,35 @@ void CarSegmentation::detectCars(cv::Mat &frame, cv::Mat empty_parking) {
 
     backSub->apply(empty_parking_eq, mask, 0);
     backSub->apply(frame_eq, mask, 1);
+    mask.setTo(0, mask != 255);
 
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(9, 9));
+    cv::dilate(mask, mask, element);
+
+    cv::Mat result = frame.clone();
+    result.setTo(cv::Scalar(0, 0, 255), mask == 255);
+    //cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(9, 9));
+    //cv::dilate(mask, mask, element);
+
+    //regionGrowing(frame, mask, result);
+
+    // TODO: Region growing algorithm using mask as seed
+
+    /*
     cv::Mat coloredMask;
     cv::cvtColor(mask, coloredMask, cv::COLOR_GRAY2BGR);
     coloredMask.setTo(cv::Scalar(0, 0, 255), mask == 255);
 
     cv::Mat result;
     cv::addWeighted(frame, 1, coloredMask, 0.7, 0, result);
-
+    */
     cv::imshow("Frame", frame);
     cv::imshow("Empty Parking", empty_parking);
     cv::imshow("Mask", mask);
     cv::imshow("Result", result);
     cv::waitKey(0);
 }
+
 
 /*
 void CarSegmentation::detectCars(cv::Mat &frame, cv::Mat &mask, cv::Mat empty_parking) {

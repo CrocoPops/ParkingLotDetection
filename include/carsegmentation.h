@@ -8,6 +8,7 @@
 // Define here the utility functions
 class CarSegmentation {
     private:
+        void regionGrowing(cv::Mat &frame, cv::Mat &mask, cv::Mat &result);
     public:
         CarSegmentation();
         ~CarSegmentation();
