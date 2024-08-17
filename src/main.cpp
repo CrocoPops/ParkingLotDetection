@@ -3,14 +3,12 @@
 #include <iostream>
 #include <vector>
 #include <filesystem>
-#include "tinyxml2.h"
 #include "utils.h"
 #include "parkingdetection.h"
 #include "carsegmentation.h"
 
 using namespace cv;
 using namespace std;
-using namespace tinyxml2;
 
 namespace fs = std::filesystem;
 
@@ -102,7 +100,7 @@ int main(int argc, char** argv) {
 
 
 
-    /*
+    
     // PARKING DETECTION & CLASSIFICATION REAL
     for(int i = 0; i < parkingImages[4].size(); i++) {
         cv::Mat parking = parkingImages[4][i];
@@ -131,31 +129,10 @@ int main(int argc, char** argv) {
         waitKey(0);
         cv::destroyAllWindows();
     }
-    */
+    
     
     // CAR SEGMENTATION
-
-    path = "dataset/cars_parked";
-    std::vector<cv::Mat> parked_cars;
-    if (fs::exists(path) && fs::is_directory(path)) {
-        cv::Mat images;
-        std::vector<std::string> imagePaths;
-
-        // Collect all image paths
-        for (const auto& entry : fs::directory_iterator(path)) {
-            imagePaths.push_back(entry.path().string());
-        }
-
-        // Sort image paths by filename
-        std::sort(imagePaths.begin(), imagePaths.end());
-
-        // Load images in sorted order
-        for (const auto& imagePath : imagePaths)
-            parked_cars.push_back(cv::imread(imagePath));
-    } 
-    else {
-        std::cerr << "Directory does not exist or is not a directory: " << path << std::endl;
-    }
+    /*
 
     std::vector<cv::Mat> maskImagesObtained;
     for(int i = 0; i < parkingImages[4].size(); i++) {
@@ -177,7 +154,7 @@ int main(int argc, char** argv) {
 
         maskImagesObtained.push_back(mask);
     }
-
+    */
     /*
     // PARKING DETECTION & CLASSIFICATION OUR MASKS
     for(int i = 0; i < parkingImages[4].size(); i++) {

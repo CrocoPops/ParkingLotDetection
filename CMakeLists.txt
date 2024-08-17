@@ -23,9 +23,6 @@ set(SOURCES
     src/parkingdetection.cpp
     src/carsegmentation.cpp
 
-    # Libs
-    src/tinyxml2.cpp
-
     # Data objects
     src/bbox.cpp
     

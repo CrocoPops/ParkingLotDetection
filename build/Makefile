@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/manuz/CV/ParkingLotDetection
+CMAKE_SOURCE_DIR = /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/manuz/CV/ParkingLotDetection/build
+CMAKE_BINARY_DIR = /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/manuz/CV/ParkingLotDetection/build/CMakeFiles /home/manuz/CV/ParkingLotDetection/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build/CMakeFiles /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/manuz/CV/ParkingLotDetection/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -225,30 +225,6 @@ src/parkingdetection.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/parkingdetection.cpp.s
 .PHONY : src/parkingdetection.cpp.s
 
-src/tinyxml2.o: src/tinyxml2.cpp.o
-.PHONY : src/tinyxml2.o
-
-# target to build an object file
-src/tinyxml2.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/tinyxml2.cpp.o
-.PHONY : src/tinyxml2.cpp.o
-
-src/tinyxml2.i: src/tinyxml2.cpp.i
-.PHONY : src/tinyxml2.i
-
-# target to preprocess a source file
-src/tinyxml2.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/tinyxml2.cpp.i
-.PHONY : src/tinyxml2.cpp.i
-
-src/tinyxml2.s: src/tinyxml2.cpp.s
-.PHONY : src/tinyxml2.s
-
-# target to generate assembly for a file
-src/tinyxml2.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/tinyxml2.cpp.s
-.PHONY : src/tinyxml2.cpp.s
-
 src/utils.o: src/utils.cpp.o
 .PHONY : src/utils.o
 
@@ -294,9 +270,6 @@ help:
 	@echo "... src/parkingdetection.o"
 	@echo "... src/parkingdetection.i"
 	@echo "... src/parkingdetection.s"
-	@echo "... src/tinyxml2.o"
-	@echo "... src/tinyxml2.i"
-	@echo "... src/tinyxml2.s"
 	@echo "... src/utils.o"
 	@echo "... src/utils.i"
 	@echo "... src/utils.s"

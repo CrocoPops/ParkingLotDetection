@@ -2,6 +2,10 @@
 
 BBox::BBox(int x, int y, int width, int height, double angle, bool occupied) : x(x), y(y), width(width), height(height), angle(angle), occupied(occupied) {}
 
+int BBox::getId() const {
+    return id;
+}
+
 int BBox::getX() const {
     return x;
 }
@@ -22,8 +26,44 @@ double BBox::getAngle() const {
     return angle;
 }
 
+std::vector<cv::Point> BBox::getContour() const {
+    return contour;
+}
+
+cv::RotatedRect BBox::getRotatedRect() const {
+    return cv::RotatedRect(cv::Point2f(x, y), cv::Size2f(width, height), angle);
+}
+
+void BBox::setId(int id) {
+    this->id = id;
+}
+
+void BBox::setX(int x) {
+    this->x = x;
+}
+
+void BBox::setY(int y) {
+    this->y = y;
+}
+
+void BBox::setWidth(int width) {
+    this->width = width;
+}
+
+void BBox::setHeight(int height) {
+    this->height = height;
+}
+
+void BBox::setAngle(double angle) {
+    this->angle = angle;
+}
+
 bool BBox::isOccupied() const {
     return occupied;
+}
+
+void BBox::setOccupied(bool occupied) {
+    this->occupied = occupied;
 }
 
 void BBox::setOccupied(cv::Mat &mask) {
@@ -108,7 +148,10 @@ void BBox::setOccupiedfromObtainedMask(cv::Mat &mask) {
 
 }
 
-cv::RotatedRect BBox::getRotatedRect() const {
-    return cv::RotatedRect(cv::Point2f(x, y), cv::Size2f(width, height), angle);
+void BBox::setContour(std::vector<cv::Point> contour) {
+    this->contour = contour;
 }
 
+void BBox::setContour(cv::Point vertex) {
+    this->contour.push_back(vertex);
+}
