@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
 
 
 
-
+    /*
     // PARKING DETECTION & CLASSIFICATION REAL
     for(int i = 0; i < parkingImages[4].size(); i++) {
         cv::Mat parking = parkingImages[4][i];
@@ -123,16 +123,40 @@ int main(int argc, char** argv) {
 
          
 
-       /* // PARKING DETECTION
-        ParkingDetection pd;
-        pd.detect(parking);
-        pd.draw(parking);
-        */
+       // PARKING DETECTION
+        //ParkingDetection pd;
+        //pd.detect(parking);
+        //pd.draw(parking);
+        
         waitKey(0);
         cv::destroyAllWindows();
     }
+    */
     
     // CAR SEGMENTATION
+
+    path = "dataset/cars_parked";
+    std::vector<cv::Mat> parked_cars;
+    if (fs::exists(path) && fs::is_directory(path)) {
+        cv::Mat images;
+        std::vector<std::string> imagePaths;
+
+        // Collect all image paths
+        for (const auto& entry : fs::directory_iterator(path)) {
+            imagePaths.push_back(entry.path().string());
+        }
+
+        // Sort image paths by filename
+        std::sort(imagePaths.begin(), imagePaths.end());
+
+        // Load images in sorted order
+        for (const auto& imagePath : imagePaths)
+            parked_cars.push_back(cv::imread(imagePath));
+    } 
+    else {
+        std::cerr << "Directory does not exist or is not a directory: " << path << std::endl;
+    }
+
     std::vector<cv::Mat> maskImagesObtained;
     for(int i = 0; i < parkingImages[4].size(); i++) {
     //for(int i = 0; i < 1; i++) {
@@ -148,12 +172,13 @@ int main(int argc, char** argv) {
         }
 
         CarSegmentation cs;
-        cv::Mat mask = cs.detectCars(parking, parkingImages[0][i]);
+        cv::Mat mask = cs.detectCars(parking, parkingImages[0]);
         //cs.detectCarsTrue(parking, parking_mask);
 
         maskImagesObtained.push_back(mask);
     }
 
+    /*
     // PARKING DETECTION & CLASSIFICATION OUR MASKS
     for(int i = 0; i < parkingImages[4].size(); i++) {
         cv::Mat parking = parkingImages[4][i];
@@ -174,22 +199,15 @@ int main(int argc, char** argv) {
 
          
 
-       /* // PARKING DETECTION
-        ParkingDetection pd;
-        pd.detect(parking);
-        pd.draw(parking);
-        */
+        // PARKING DETECTION
+        //ParkingDetection pd;
+        //pd.detect(parking);
+        //pd.draw(parking);
+        
         waitKey(0);
         cv::destroyAllWindows();
     }
-
-
-
-
-
-
-
-
+    */
 
     return 0;
 
