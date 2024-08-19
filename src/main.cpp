@@ -102,29 +102,29 @@ int main(int argc, char** argv) {
 
     
     // PARKING DETECTION & CLASSIFICATION REAL
-    for(int i = 0; i < parkingImages[4].size(); i++) {
-        cv::Mat parking = parkingImages[4][i];
+    for(int i = 0; i < parkingImages[0].size(); i++) {
+        cv::Mat parking = parkingImages[0][i];
         if (parking.empty()) {
             std::cerr << "Invalid input" << std::endl;
             return -1;
         }
-
+        /*
         // Show real image bounding box
         Mat realBBoxes = parking.clone();
         vector<BBox> bboxes = parseParkingXML(bboxesPaths[4][i]);
         for (auto& bbox : bboxes) {
-            bbox.setOccupied(parkingMasks[3][i]);
+            //bbox.setOccupied(parkingMasks[3][i]);
             drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied());
         }
         imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes);
-
+        */
          
 
        // PARKING DETECTION
-        //ParkingDetection pd;
-        //pd.detect(parking);
-        //pd.draw(parking);
+        ParkingDetection pd;
+        pd.detect(parking);
+        pd.draw(parking);
         
         waitKey(0);
         cv::destroyAllWindows();

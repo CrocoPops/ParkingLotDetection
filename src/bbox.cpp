@@ -82,7 +82,7 @@ void BBox::setOccupied(cv::Mat &mask) {
         bool occupied = false;
 
         // Check the neighbors pixels from the center
-        int radius = 5;
+        int radius = 3;
         for (int dy = -radius; dy <= radius; dy++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 int nx = x + dx;
