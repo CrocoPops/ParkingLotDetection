@@ -70,6 +70,40 @@ void deleteAreasInRange(cv::Mat &img, int minSize, int maxSize) {
     }
 }
 
+std::vector<cv::Vec4i> closest_neighbor_line(cv::Mat corners) {
+    std::vector<cv::Vec4i> lines;
+    
+    // Iterate over all pixels in the image
+    for(int i = 0; i < corners.rows; i++) {
+        for(int j = 0; j < corners.cols; j++) {
+            if(corners.at<uchar>(i, j) == 255) {
+                // Found a white pixel, now search for the closest neighbor
+                bool found = false;
+                int radius = 1;
+                
+                while(!found) {
+                    // Expand the search radius until a point is found
+                    for(int k = i - radius; k <= i + radius; k++) {
+                        for(int l = j - radius; l <= j + radius; l++) {
+                            if(k >= 0 && k < corners.rows && l >= 0 && l < corners.cols) {
+                                if(corners.at<uchar>(k, l) == 255 && !(k == i && l == j)) {
+                                    // Found a different white pixel, create a line
+                                    lines.push_back(cv::Vec4i(j, i, l, k));
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if(found) break;
+                    }
+                    radius++;
+                }
+            }
+        }
+    }
+    return lines;
+}
+
 void ParkingDetection::detect(cv::Mat &frame) {
     cv::Mat frame_HSV;
     cv::cvtColor(frame, frame_HSV, cv::COLOR_BGR2HSV);
@@ -176,25 +210,41 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::dilate(frame_mser, frame_mser, element);
     cv::imshow("Bitwise and 2", frame_mser);
 
-    // Thinning
-    cv::Mat A, B;
-    cv::ximgproc::thinning(frame_mser, A, cv::ximgproc::THINNING_ZHANGSUEN);
-    cv::ximgproc::thinning(frame_mser, B, cv::ximgproc::THINNING_GUOHALL);
-    cv::imshow("Thinning A", A);
-    cv::imshow("Thinning B", B);
 
     // Find corners using as mask the filtered MSER
     std::vector<cv::Point2f> corners;
     cv::goodFeaturesToTrack(frame_V, corners, 500, 0.0001, 10, frame_mser, 1);
-    cv::Mat frame_corner = frame.clone();
-    // Draw circles at detected corners
+    // Create an empty matrix to store the corner points
+    cv::Mat frame_corner = cv::Mat::zeros(frame.size(), CV_8UC1);
+
+    // Mark each corner with a single pixel
     for (size_t i = 0; i < corners.size(); i++) {
-        cv::circle(frame_corner, corners[i], 3, cv::Scalar(255, 0, 0), -1);
+        // Convert floating-point corner coordinates to integer pixel coordinates
+        cv::Point corner_point = cv::Point(cvRound(corners[i].x), cvRound(corners[i].y));
+
+        // Set the pixel value at the corner position to 255
+        frame_corner.at<uchar>(corner_point.y, corner_point.x) = 255;
     }
+
+
+
+    std::vector<cv::Vec4i> lines_filtered;
+    lines_filtered = closest_neighbor_line(frame_corner);
+    
+
+
+    // Draw the lines
+    line_image = frame.clone();
+    for (const auto& line : lines_filtered)
+        cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
+
+    cv::imshow("Lines filtered", line_image);
+
 
     // Display the results
     cv::imshow("Corners", frame_corner);
-   
+    
+
 
    
     cv::waitKey(0);
