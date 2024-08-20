@@ -1,165 +1,200 @@
 #include "parkingdetection.h"
+#include <opencv2/ximgproc.hpp>
 
 ParkingDetection::ParkingDetection(std::vector<BBox> parkings) : parkings(parkings) {}
 
-void deleteRegionsBySize(cv::Mat &img, int minSize, int maxSize) {
-    // Ensure the image is binary
-    cv::Mat binary;
-    if (img.channels() > 1) {
-        cv::cvtColor(img, binary, cv::COLOR_BGR2GRAY);
-        cv::threshold(binary, binary, 128, 255, cv::THRESH_BINARY);
-    } else {
-        binary = img.clone();
+
+// Remove the isolated pixels that are far from the rest of the pixels
+// neighbrhoodSize: size of the neighborhood to consider (rectangular)
+// minPixels: minimum number of white pixels in the neighborhood to keep the pixel white
+
+void removeIsolatedPixels(cv::Mat &img, int neighborhoodSize, int minPixels) {
+    // Ensure the neighborhood size is odd to have a center pixel
+    if (neighborhoodSize % 2 == 0) {
+        neighborhoodSize += 1;
     }
+    
+    // Create a copy of the original image to modify
+    cv::Mat output = img.clone();
+    
+    int offset = neighborhoodSize / 2;
 
-    // Find all contours in the binary image
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    for (int y = offset; y < img.rows - offset; ++y) {
+        for (int x = offset; x < img.cols - offset; ++x) {
+            if (img.at<uchar>(y, x) == 255) { // Only consider white pixels
+                // Define the neighborhood
+                cv::Rect neighborhood(x - offset, y - offset, neighborhoodSize, neighborhoodSize);
+                cv::Mat roi = img(neighborhood);
 
-    // Iterate over each contour and delete regions that are too big or too small
-    for (const auto &contour : contours) {
-        double area = cv::contourArea(contour);
+                // Count the number of white pixels in the neighborhood
+                int whiteCount = cv::countNonZero(roi);
 
-        // Check if the area is outside the desired range
-        if (area < minSize || area > maxSize) {
-            // Draw over the contour with black (0) to delete the region
-            cv::drawContours(img, std::vector<std::vector<cv::Point>>{contour}, -1, cv::Scalar(0), cv::FILLED);
+                // If the number of white pixels is less than the threshold, set the pixel to black
+                if (whiteCount < minPixels) {
+                    output.at<uchar>(y, x) = 0;
+                }
+            }
         }
     }
+
+    img = output;
 }
 
+// Based on the region's area, delete the region if the area is between minSize and maxSize
 
-void deleteWeakAreas(cv::Mat &img, int numAreas, int numPixels) {
-    int rows = img.rows;
-    int cols = img.cols;
+void deleteAreasInRange(cv::Mat &img, int minSize, int maxSize) {
+    // Ensure the image is binary
+    if (img.type() != CV_8UC1) {
+        std::cerr << "Image must be binary (CV_8UC1)" << std::endl;
+        return;
+    }
 
-    // Calculate the size of each square area
-    int blockSizeX = cols / numAreas;
-    int blockSizeY = rows / numAreas;
+    // Find connected components
+    cv::Mat labels, stats, centroids;
+    int numComponents = cv::connectedComponentsWithStats(img, labels, stats, centroids);
 
-    // Iterate over each block
-    for (int i = 0; i < numAreas; ++i) {
-        for (int j = 0; j < numAreas; ++j) {
-            // Define the region of interest (ROI) for the current block
-            int startX = j * blockSizeX;
-            int startY = i * blockSizeY;
+    // Iterate over each connected component
+    for (int i = 1; i < numComponents; ++i) { // Start from 1 to skip the background
+        int area = stats.at<int>(i, cv::CC_STAT_AREA);
 
-            // Ensure the last block covers the remaining pixels (in case cols/numAreas or rows/numAreas is not a perfect division)
-            int width = (j == numAreas - 1) ? cols - startX : blockSizeX;
-            int height = (i == numAreas - 1) ? rows - startY : blockSizeY;
-
-            cv::Rect roi(startX, startY, width, height);
-            cv::Mat block = img(roi);
-
-            // Draw the rectangle on the original image
-            //cv::rectangle(img, roi, cv::Scalar(127), 1); 
-
-            // Count the number of pixels with a value of 255 in the current block
-            int count = cv::countNonZero(block == 255);
-
-            // If the count is less than or equal to numPixels, set all pixels in the block to 0
-            if (count <= numPixels) {
-                img(roi).setTo(cv::Scalar(0));  
+        // If the area is between minSize and maxSize, delete it
+        if (area >= minSize && area <= maxSize) {
+            for (int y = 0; y < labels.rows; ++y) {
+                for (int x = 0; x < labels.cols; ++x) {
+                    if (labels.at<int>(y, x) == i) {
+                        img.at<uchar>(y, x) = 0;
+                    }
+                }
             }
         }
     }
 }
 
-
-
 void ParkingDetection::detect(cv::Mat &frame) {
-cv::Mat parking_gray, parking_blurred, parking_laplacian, parking_edges;
-    cv::Mat parking;
-  
-    // Convert to grayscale
-    cv::cvtColor(frame, parking, cv::COLOR_BGR2HLS);
-    cv::cvtColor(frame, parking, cv::COLOR_BGR2HLS);
-
-
-   // Extract the L channel
+    cv::Mat frame_HSV;
+    cv::cvtColor(frame, frame_HSV, cv::COLOR_BGR2HSV);
+    
+    // Divide the frame into its components
+    cv::Mat frame_H, frame_S, frame_V;
     std::vector<cv::Mat> channels;
-    cv::split(parking, channels);
-    parking_gray = channels[1];
+    cv::split(frame_HSV, channels);
+    frame_H = channels[0];
+    frame_S = channels[1];
+    frame_V = channels[2];
 
-    cv::imshow("L", parking_gray);
+    
+    //Threshold on V
+    cv::Mat frame_V_TH;
+    cv::adaptiveThreshold(frame_V, frame_V_TH, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY_INV, 5, 7);
+    cv::imshow("Threshold V", frame_V_TH);
 
-    // Threshold on L
-    cv::adaptiveThreshold(parking_gray, parking_gray, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY_INV, 3, 7);
-    cv::imshow("Threshold", parking_gray);
 
 
-    int count = cv::countNonZero(parking_gray);
-    std::cout << "Count: " << count << std::endl;
+
     // Apply Laplacian
-    cv::Laplacian(parking_gray, parking_laplacian, CV_64F, 3, 1, 0, cv::BORDER_DEFAULT);
-    cv::Laplacian(parking_gray, parking_laplacian, CV_64F, 3, 1, 0, cv::BORDER_DEFAULT);
+    cv::Mat parking_laplacian;
+    cv::Laplacian(frame_V_TH, parking_laplacian, CV_64F, 3, 1, 0, cv::BORDER_DEFAULT);
     cv::convertScaleAbs(parking_laplacian, parking_laplacian);
     cv::threshold(parking_laplacian, parking_laplacian, 100, 255, cv::THRESH_BINARY);
-   
     
+    // Closing
     cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
     cv::morphologyEx(parking_laplacian, parking_laplacian, cv::MORPH_CLOSE, element);
-    //cv::inRange(temp, cv::Scalar(0, 0, 0), cv::Scalar(180, 255, 50), temp);
-    cv::imshow("Laplacian", parking_laplacian);
+    
 
-    // Apply Canny edge detection
-    //cv::Canny(parking_laplacian, parking_edges, 10, 30, 3);
 
-    // Hough Lines Transform on `parking_edges`
+    //Hough Lines Transform `
     std::vector<cv::Vec4i> lines;
-    cv::HoughLinesP(parking_laplacian, lines, 1, CV_PI/180, 50, count / 5200, count / 3500);
+    cv::HoughLinesP(parking_laplacian, lines, 1, CV_PI/180, 50, 6, 10);
 
-        
-        
-
-    // Draw the lines on the original frame
-    cv::Mat line_image = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for (const auto& line : lines)
+    // Draw the lines
     cv::Mat line_image = cv::Mat::zeros(frame.size(), CV_8UC1);
     for (const auto& line : lines)
         cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
-        
-    
-    
-    cv::Mat line_filtered = line_image.clone();
-    // Delete weak areas
-    deleteWeakAreas(line_filtered, 4, count / 5);
 
-    // Delete weak areas 2
-
-    cv::Mat line_filtered2 = line_filtered.clone();
-    deleteWeakAreas(line_filtered2, 7, count / 20);
-
-    // bitwise or
-    cv::Mat bitwise_or;
-    cv::bitwise_or(parking_gray, line_filtered2, bitwise_or);
-
-    // Hough Lines Transform on `line_filtered2`
-    std::vector<cv::Vec4i> lines2;
-    cv::HoughLinesP(line_filtered2, lines2, 1, CV_PI/180, 50, count / 4000, count / 3000);
-
-    // Draw the lines on the original frame
-    cv::Mat line_image2 = frame.clone();
-    for (const auto& line : lines2)
-        cv::line(line_image2, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
-
-    
-    // Delete weak areas 3
-    cv::Mat line_filtered3 = line_image2.clone();
-    //deleteWeakAreas(line_filtered3, 3, 3000);
-   
-    // Display the results
-    //cv::imshow("Edges", parking_edges);
     cv::imshow("Lines", line_image);
-    cv::imshow("Lines filtered", line_filtered);
-    cv::imshow("Lines filtered 2", line_filtered2);
-    cv::imshow("Bitwise or", bitwise_or);
-    cv::imshow("Lines 2", line_image2);
-    //cv::imshow("Lines filtered 3", line_filtered3);
+    
+    // Threshold on H and S for rexternal objects
+    cv::Mat frame_H_TH, frame_S_TH;
+    cv::threshold(frame_H, frame_H_TH, 30, 255, cv::THRESH_BINARY_INV);
+    cv::threshold(frame_S, frame_S_TH, 150, 255, cv::THRESH_BINARY_INV);
+    cv::imshow("Threshold H", frame_H_TH);
+    cv::imshow("Threshold S", frame_S_TH);
+
+    // bitwise and 
+    cv::Mat bitwise_and;
+    cv::bitwise_and(frame_H_TH, frame_S_TH, bitwise_and);
+    cv::bitwise_and(line_image, bitwise_and, bitwise_and);
+    cv::imshow("Bitwise and", bitwise_and);
+
+    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
+    cv::dilate(bitwise_and, bitwise_and, element);
 
 
+    // Hough Lines Transform on `bitwise_and`
+    lines.clear();
+    cv::HoughLinesP(bitwise_and, lines, 1, CV_PI/180, 50, 6, 10);
 
+    // Draw the lines 
+    line_image = cv::Mat::zeros(frame.size(), CV_8UC1);
+    for (const auto& line : lines)
+        cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
 
+    cv::imshow("Lines", line_image);
+
+    //MSER
+    cv::Ptr<cv::MSER> mser = cv::MSER::create();
+    mser->setMinArea(40);
+    mser->setMaxArea(600);
+    std::vector<std::vector<cv::Point>> regions;
+    std::vector<cv::Rect> bboxes;
+    mser->detectRegions(frame_V, regions, bboxes);
+    cv::Mat frame_mser = cv::Mat::zeros(frame.size(), CV_8UC1);
+    for (const auto& region : regions) {
+        for (const auto& point : region) {
+            frame_mser.at<uchar>(point) = 255;
+        }
+    }
+    cv::imshow("MSER", frame_mser);
+
+    // Filter MSER removing isolated pixels
+    removeIsolatedPixels(frame_mser, 200, 400);
+    cv::imshow("Filtered MSER", frame_mser);
+
+    // dilate the filtered mask
+    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(70, 70));
+    cv::dilate(frame_mser, frame_mser, element);
+    cv::imshow("Dilated MSER", frame_mser);
+
+    // Delete weak areas
+    deleteAreasInRange(frame_mser, 5000, 100000);
+    cv::imshow("Filtered MSER 2", frame_mser);
+
+    // Bitwise and for having a more detailed mask without external objects
+    cv::bitwise_and(frame_mser, line_image, frame_mser);
+    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
+    cv::dilate(frame_mser, frame_mser, element);
+    cv::imshow("Bitwise and 2", frame_mser);
+
+    // Thinning
+    cv::Mat A, B;
+    cv::ximgproc::thinning(frame_mser, A, cv::ximgproc::THINNING_ZHANGSUEN);
+    cv::ximgproc::thinning(frame_mser, B, cv::ximgproc::THINNING_GUOHALL);
+    cv::imshow("Thinning A", A);
+    cv::imshow("Thinning B", B);
+
+    // Find corners using as mask the filtered MSER
+    std::vector<cv::Point2f> corners;
+    cv::goodFeaturesToTrack(frame_V, corners, 500, 0.0001, 10, frame_mser, 1);
+    cv::Mat frame_corner = frame.clone();
+    // Draw circles at detected corners
+    for (size_t i = 0; i < corners.size(); i++) {
+        cv::circle(frame_corner, corners[i], 3, cv::Scalar(255, 0, 0), -1);
+    }
+
+    // Display the results
+    cv::imshow("Corners", frame_corner);
+   
 
    
     cv::waitKey(0);
