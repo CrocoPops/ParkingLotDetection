@@ -105,7 +105,7 @@ std::vector<cv::Vec4i> closest_neighbor_line(cv::Mat corners) {
 }
 
 
-void enhanceWeakpointsNearStrongOnes(cv:: Mat &img, int neighborhoodSize, int minNumStrongPixels, int threshold) {
+void enhanceWeakPointsNearStrongOnes(cv:: Mat &img, int neighborhoodSize, int minNumStrongPixels, int threshold) {
     
     // check if the threshold is valid
     if (threshold < 0 || threshold > 255) {
@@ -338,7 +338,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::imshow("Sub threshold", sub);
     
     // Enhance weak points near strong ones
-    enhanceWeakpointsNearStrongOnes(sub, 80, 10, 30);
+    enhanceWeakPointsNearStrongOnes(sub, 80, 10, 30);
 
     cv::imshow("Frame gray", frame_gray);
     cv::imshow("Green mask", green_mask);
@@ -366,19 +366,48 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::morphologyEx(frame_mser, frame_mser, cv::MORPH_CLOSE, element);
     deleteAreasInRange(frame_mser, 2000, 20000);
     deleteAreasInRange(frame_mser, 20, 50);
+   // removeIsolatedPixels(frame_mser, 100, 150);
     cv::imshow("Filtered MSER", frame_mser);
+    cv::imwrite("../Lab4/mser.jpg", frame_mser);
   
     // Hough Lines Transform
     std::vector<cv::Vec4i> lines;
-    cv::HoughLinesP(frame_mser, lines, 1, CV_PI/180, 30, 7, 10);
-
+    //cv::HoughLinesP(frame_mser, lines, 1, CV_PI/180, 30, 7, 10);
+    cv::HoughLinesP(frame_mser, lines, 1, CV_PI/180, 30, 15, 10);
     // Draw the lines
     cv::Mat line_image = frame.clone();
+    cv::Mat filtered_line_image = frame.clone();
     
+    // Filter the lines based on the angle
+    std::vector<cv::Vec4i> filtered_lines;
+    std::vector<double> m;
+    for (const auto& line : lines) {
+        double angle = atan2(line[3] - line[1], line[2] - line[0]) * 180 / CV_PI;
+        
+        m.push_back((double)(line[3] - line[1]) / (double)(line[2] - line[0]));
+    }
+
+    double m_threshold = 1.0;
+
+    for(int i = 0; i < m.size(); i++){
+        if(m[i] <= -m_threshold || (m[i] >= 0 && m[i] <= 0.4)){
+            filtered_lines.push_back(lines[i]);
+        }
+    }
+
+
+
     for (const auto& line : lines)
         cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
 
+    std::cout << "Number of lines: " << lines.size() << std::endl;
+    std::cout << "Number of filtered lines: " << filtered_lines.size() << std::endl;
+
+    for (const auto& line : filtered_lines)
+        cv::line(filtered_line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
+
     cv::imshow("Lines", line_image);
+    cv::imshow("Filtered lines", filtered_line_image);
 
     cv::waitKey(0);
 }
