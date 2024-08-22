@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/manuz/CV/ParkingLotDetection
+CMAKE_SOURCE_DIR = /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/manuz/CV/ParkingLotDetection/build
+CMAKE_BINARY_DIR = /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/manuz/CV/ParkingLotDetection/build/CMakeFiles /home/manuz/CV/ParkingLotDetection/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build/CMakeFiles /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/manuz/CV/ParkingLotDetection/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -249,6 +249,30 @@ src/utils.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/utils.cpp.s
 .PHONY : src/utils.cpp.s
 
+src/visualizationmap.o: src/visualizationmap.cpp.o
+.PHONY : src/visualizationmap.o
+
+# target to build an object file
+src/visualizationmap.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/visualizationmap.cpp.o
+.PHONY : src/visualizationmap.cpp.o
+
+src/visualizationmap.i: src/visualizationmap.cpp.i
+.PHONY : src/visualizationmap.i
+
+# target to preprocess a source file
+src/visualizationmap.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/visualizationmap.cpp.i
+.PHONY : src/visualizationmap.cpp.i
+
+src/visualizationmap.s: src/visualizationmap.cpp.s
+.PHONY : src/visualizationmap.s
+
+# target to generate assembly for a file
+src/visualizationmap.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/visualizationmap.cpp.s
+.PHONY : src/visualizationmap.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -273,6 +297,9 @@ help:
 	@echo "... src/utils.o"
 	@echo "... src/utils.i"
 	@echo "... src/utils.s"
+	@echo "... src/visualizationmap.o"
+	@echo "... src/visualizationmap.i"
+	@echo "... src/visualizationmap.s"
 .PHONY : help
 
 

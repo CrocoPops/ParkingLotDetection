@@ -5,7 +5,7 @@
 #include "bbox.h"
 
 // Implement here the utility functions
-void drawRotatedRectangle(cv::Mat& image, cv::RotatedRect rect, bool occupied)
+void drawRotatedRectangle(cv::Mat& image, cv::RotatedRect rect, bool occupied, bool filled = false)
 {   
     // 0 -> empty
     // 1 -> occupied
@@ -25,8 +25,14 @@ void drawRotatedRectangle(cv::Mat& image, cv::RotatedRect rect, bool occupied)
     for(int i = 0; i < 4; i++)
         vertices[i] = vertices2f[i];
 
-    for (int i = 0; i < 4; i++)
-        cv::line(image, vertices[i], vertices[(i+1)%4], color, 2);
+    if(filled) {
+        std::vector<cv::Point> points(vertices, vertices + 4);
+        cv::fillPoly(image, std::vector<std::vector<cv::Point>>{points}, color);
+    }
+    else {
+        for (int i = 0; i < 4; i++)
+            cv::line(image, vertices[i], vertices[(i+1)%4], color, 2);
+    }
 }
 
 std::vector<BBox> parseParkingXML(const std::string& filename) {

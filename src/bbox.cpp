@@ -155,3 +155,10 @@ void BBox::setContour(std::vector<cv::Point> contour) {
 void BBox::setContour(cv::Point vertex) {
     this->contour.push_back(vertex);
 }
+
+void BBox::toString() {
+    int id, x, y, width, height;
+        double angle;
+        bool occupied;
+    std::cout << "Id: " << this->id << "\nCenter: (" << this->x << ", " << this->y << ")\nWidth: " << this->width << "\nHeight: " << this->height << "\nAngle: " << this->angle << "\n\n";
+} 

@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "parkingdetection.h"
 #include "carsegmentation.h"
+#include "visualizationmap.h"
 
 using namespace cv;
 using namespace std;
@@ -96,87 +97,34 @@ int main(int argc, char** argv) {
             std::cerr << "File does not exist." << std::endl;
         }
     }
-
+    
 
 
 
     
     // PARKING DETECTION & CLASSIFICATION REAL
+    std::vector<BBox> real_bboxes;
     for(int i = 0; i < parkingImages[0].size(); i++) {
         cv::Mat parking = parkingImages[0][i];
         if (parking.empty()) {
             std::cerr << "Invalid input" << std::endl;
             return -1;
         }
-        /*
+        
         // Show real image bounding box
         Mat realBBoxes = parking.clone();
-        vector<BBox> bboxes = parseParkingXML(bboxesPaths[4][i]);
-        for (auto& bbox : bboxes) {
+        real_bboxes = parseParkingXML(bboxesPaths[0][i]);
+        for (auto& bbox : real_bboxes) {
+            bbox.toString();
             //bbox.setOccupied(parkingMasks[3][i]);
-            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied());
+            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied(), false);
         }
         imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes);
-        */
+        
          
 
        // PARKING DETECTION
-        ParkingDetection pd;
-        pd.detect(parking);
-        pd.draw(parking);
-        
-        waitKey(0);
-        cv::destroyAllWindows();
-    }
-    
-    
-    // CAR SEGMENTATION
-    /*
-
-    std::vector<cv::Mat> maskImagesObtained;
-    for(int i = 0; i < parkingImages[4].size(); i++) {
-    //for(int i = 0; i < 1; i++) {
-        cv::Mat parking = parkingImages[4][i];
-        cv::Mat parking_mask = parkingMasks[3][i];
-        if (parking.empty()) {
-            std::cerr << "Invalid input" << std::endl;
-            return -1;
-        }
-        if(parking_mask.empty()){
-            std::cerr << "Invalid mask" << std::endl;
-            return -1;
-        }
-
-        CarSegmentation cs;
-        cv::Mat mask = cs.detectCars(parking, parkingImages[0]);
-        //cs.detectCarsTrue(parking, parking_mask);
-
-        maskImagesObtained.push_back(mask);
-    }
-    */
-    /*
-    // PARKING DETECTION & CLASSIFICATION OUR MASKS
-    for(int i = 0; i < parkingImages[4].size(); i++) {
-        cv::Mat parking = parkingImages[4][i];
-        if (parking.empty()) {
-            std::cerr << "Invalid input" << std::endl;
-            return -1;
-        }
-
-        // Show real image bounding box with our mask
-        Mat realBBoxes = parking.clone();
-        vector<BBox> bboxes = parseParkingXML(bboxesPaths[4][i]);
-        for (auto& bbox : bboxes) {
-            bbox.setOccupiedfromObtainedMask(maskImagesObtained[i]);
-            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied());
-        }
-        imshow("Frame", parking);
-        imshow("Real bounding boxes with our mask", realBBoxes);
-
-         
-
-        // PARKING DETECTION
         //ParkingDetection pd;
         //pd.detect(parking);
         //pd.draw(parking);
@@ -184,10 +132,63 @@ int main(int argc, char** argv) {
         waitKey(0);
         cv::destroyAllWindows();
     }
-    */
+    
+    
+    // CAR SEGMENTATION
+    
+    // Array of vector, in position 0 there are the masks related of sequence 1
+    // p_i = masks_i-1
+    /*
+    std::vector<cv::Mat> real_masks[4];
+    for(int i = 1; i <= 5; i++) {
+        for(int j = 0; j < parkingImages[i].size(); j++) {
+        //for(int i = 0; i < 1; i++) {
+            cv::Mat parking = parkingImages[i][j];
+            cv::Mat parking_mask = parkingMasks[i - 1][j];
+            if (parking.empty()) {
+                std::cerr << "Invalid input" << std::endl;
+                return -1;
+            }
+            if(parking_mask.empty()){
+                std::cerr << "Invalid mask" << std::endl;
+                return -1;
+            }
 
-    return 0;
+            CarSegmentation cs;
+            //cv::Mat mask = cs.detectCars(parking, parkingImages[0]);
+            cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
+            real_masks[i - 1].push_back(true_mask);
+            // maskImagesObtained.push_back(mask);
+        }
+    }*/
+    // PARKING DETECTION & CLASSIFICATION OUR MASKS
+    /*for(int i = 0; i < parkingImages[0].size(); i++) {
+        cv::Mat parking = parkingImages[0][i];
+        if (parking.empty()) {
+            std::cerr << "Invalid input" << std::endl;
+            return -1;
+        }
 
+        // Show real image bounding box with our mask
+        Mat realBBoxes = parking.clone();
+        vector<BBox> bboxes = parseParkingXML(bboxesPaths[0][i]);
+        
+        for (auto& bbox : bboxes) {
+            bbox.toString();
+            bbox.setOccupiedfromObtainedMask(maskImagesObtained[i]);
+            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied());
+        }
+        imshow("Frame", parking);
+        imshow("Real bounding boxes with our mask", realBBoxes);
+        // PARKING DETECTION
+        //ParkingDetection pd;
+        //pd.detect(parking);
+        //pd.draw(parking);
+        
+        waitKey(0);
+        cv::destroyAllWindows();
+    }*/
+    
     // TODO: PARKING SPACES CLASSIFICATION
     // Categories: 0 - Empty Space, 1 - Occupied Space
 
@@ -195,6 +196,28 @@ int main(int argc, char** argv) {
     // Categories: 1 - Car correctly parked, 2 - Car out of place
 
     // TODO: 2D TOP-VIEW VISUALIZATION MAP
+    for(int i = 1; i <= 5; i++) {
+        for(int j = 0; j < parkingImages[i].size(); j++) {
+        //for(int i = 0; i < 1; i++) {
+            cv::Mat parking = parkingImages[i][j];
+            cv::Mat parking_mask = parkingMasks[i - 1][j];
+            if (parking.empty()) {
+                std::cerr << "Invalid input" << std::endl;
+                return -1;
+            }
+            if(parking_mask.empty()){
+                std::cerr << "Invalid mask" << std::endl;
+                return -1;
+            }
+
+            std::vector<BBox> bboxes = parseParkingXML(bboxesPaths[i][j]);
+            VisualizationMap map;
+            map.drawParkingMap(parking, bboxes);
+        }
+    }
+
+
+    return 0;
 }
 /*
 // 3td try

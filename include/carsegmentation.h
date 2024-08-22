@@ -17,6 +17,6 @@ class CarSegmentation {
         CarSegmentation();
         ~CarSegmentation();
         cv::Mat detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings);
-        void detectCarsTrue(cv::Mat &frame, cv::Mat &mask);
+        cv::Mat detectCarsTrue(cv::Mat &frame, cv::Mat &mask);
 };
 #endif

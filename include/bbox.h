@@ -33,5 +33,6 @@ class BBox {
         void setOccupiedfromObtainedMask(cv::Mat &mask);
         void setContour(std::vector<cv::Point> contour);
         void setContour(cv::Point vertex);
+        void toString();
 };
 #endif

@@ -49,7 +49,7 @@ void CarSegmentation::regionGrowing(cv::Mat &frame, cv::Mat &mask, cv::Mat &resu
 }
 
 
-void CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
+cv::Mat CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     cv::Mat coloredMask = mask.clone();
     coloredMask.setTo(cv::Scalar(128, 128, 128), mask == 0);
     coloredMask.setTo(cv::Scalar(0, 0, 255), mask == 1);
@@ -58,12 +58,56 @@ void CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     cv::Mat result;
     cv::addWeighted(coloredMask, 0.7, frame, 1, 0, result);
 
-    cv::imshow("Frame", frame);
-    cv::imshow("Mask", mask);
-    cv::imshow("Colored Mask", coloredMask);
     cv::imshow("Contours", result);
     cv::waitKey(0);
+
+    return coloredMask;
 }
+
+/*
+cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+    // Convert the current frame to grayscale
+    cv::Mat frame_gray;
+    cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
+
+    std::vector<cv::Mat> empty_parking_subtracted;
+
+    // Subtract each empty parking lot image from the current frame
+    for(cv::Mat empty_parking : empty_parkings) {
+        cv::Mat empty_parking_gray;
+        cv::cvtColor(empty_parking, empty_parking_gray, cv::COLOR_BGR2GRAY);
+
+        cv::Mat diff;
+        cv::absdiff(frame_gray, empty_parking_gray, diff); // Compute absolute difference
+        empty_parking_subtracted.push_back(diff); // Store the difference image
+    }
+
+    // Calculate the median of the subtracted images
+    cv::Mat median(frame.size(), CV_8UC1);
+    for(int x = 0; x < median.rows; x++) {
+        for(int y = 0; y < median.cols; y++) {
+            std::vector<uchar> values;
+            for(const cv::Mat& empty_parking_sub : empty_parking_subtracted) {
+                values.push_back(empty_parking_sub.at<uchar>(x, y));
+            }
+            std::sort(values.begin(), values.end());
+            median.at<uchar>(x, y) = values[values.size() / 2];
+        }
+    }
+
+    // Display the subtracted images (for debugging)
+    for(const cv::Mat& empty_parking_sub : empty_parking_subtracted) {
+        cv::imshow("Subtracted", empty_parking_sub);
+        cv::waitKey(0);
+    }
+
+    // Display the median image
+    cv::imshow("Median", median);
+    cv::waitKey(0);
+
+    return median;
+}
+*/
 
 
 cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) { 
@@ -220,6 +264,7 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
 
     return output;
 }
+
 
 
 
