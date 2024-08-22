@@ -104,6 +104,44 @@ std::vector<cv::Vec4i> closest_neighbor_line(cv::Mat corners) {
     return lines;
 }
 
+
+void enhanceWeakpointsNearStrongOnes(cv:: Mat &img, int neighborhoodSize, int minNumStrongPixels, int threshold) {
+    
+    // check if the threshold is valid
+    if (threshold < 0 || threshold > 255) {
+        std::cerr << "Threshold must be between 0 and 255" << std::endl;
+        return;
+    }
+    
+    
+    cv::Mat output = cv::Mat::zeros(img.size(), CV_8UC1);
+
+    int offset = neighborhoodSize / 2;
+
+    for (int y = 0; y < img.rows; y++) {
+        for (int x = 0; x < img.cols; x++) {
+            if (img.at<uchar>(y, x) != 0) { 
+                int strongCount = 0;
+                for(int i = -offset; i <= offset; i++) {
+                    for(int j = -offset; j <= offset; j++) {
+                        if (i == 0 && j == 0) continue;
+                        if (y + i >= 0 && y + i < img.rows && x + j >= 0 && x + j < img.cols) {
+                            if (img.at<uchar>(y + i, x + j) >= threshold)
+                                strongCount++;
+                        }
+                    }
+                }
+                if (strongCount >= minNumStrongPixels || img.at<uchar>(y, x) >= threshold) {
+                    output.at<uchar>(y, x) = 255;
+                }
+            }
+        }
+    }
+    img = output;
+}
+                                    
+
+/*
 void ParkingDetection::detect(cv::Mat &frame) {
     cv::Mat frame_HSV;
     cv::cvtColor(frame, frame_HSV, cv::COLOR_BGR2HSV);
@@ -249,6 +287,102 @@ void ParkingDetection::detect(cv::Mat &frame) {
    
     cv::waitKey(0);
 }
+*/
+
+void ParkingDetection::detect(cv::Mat &frame) {
+
+    // Convert the frame to HSV color space
+    cv::Mat frame_backup = frame.clone();
+    cv::Mat frame_hsv;
+    cv::cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
+
+    cv::Mat green_mask;
+    std::vector<cv::Mat> hsv_channels;
+    cv::split(frame_hsv, hsv_channels);
+    cv::threshold(hsv_channels[1], green_mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    
+    cv::Mat frame_gray, frame_blurred, sub;
+    cv::cvtColor(frame_hsv, frame_backup, cv::COLOR_HSV2BGR);
+    cv::cvtColor(frame_backup, frame_gray, cv::COLOR_BGR2GRAY);
+    cv::GaussianBlur(frame_gray, frame_blurred, cv::Size(15, 15), 0);
+    cv::subtract(frame_gray, frame_blurred, sub);
+
+    // Delete parking lines from green_mask
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
+    cv::erode(green_mask, green_mask, element);
+
+    // Dilate the green mask
+    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(30, 30));
+    cv::dilate(green_mask, green_mask, element);
+
+
+    cv::bitwise_not(green_mask, green_mask);
+
+
+    
+    // Delete green mask from sub
+    cv::bitwise_and(sub, green_mask, sub);
+    cv::imshow("Sub", sub);
+
+    // Maintain only the points over a specific threshold
+    int threshold = 10;
+    for (int i = 0; i < sub.rows; i++) {
+        for (int j = 0; j < sub.cols; j++) {
+            if (sub.at<uchar>(i, j) < threshold) {
+                sub.at<uchar>(i, j) = 0;
+            }
+        }
+    }
+
+    
+    cv::imshow("Sub threshold", sub);
+    
+    // Enhance weak points near strong ones
+    enhanceWeakpointsNearStrongOnes(sub, 80, 10, 30);
+
+    cv::imshow("Frame gray", frame_gray);
+    cv::imshow("Green mask", green_mask);
+    cv::imshow("Sub enhanced", sub);
+
+    
+    //MSER
+    cv::Ptr<cv::MSER> mser = cv::MSER::create();
+    mser->setMinArea(50);
+    std::vector<std::vector<cv::Point>> regions;
+    std::vector<cv::Rect> bboxes;
+    mser->detectRegions(sub, regions, bboxes);
+    cv::Mat frame_mser = cv::Mat::zeros(frame.size(), CV_8UC1);
+    for (const auto& region : regions) {
+        for (const auto& point : region) {
+            frame_mser.at<uchar>(point) = 255;
+        }
+    }
+    cv::imshow("MSER", frame_mser);
+
+    
+    // Filter MSER removing isolated pixels
+    removeIsolatedPixels(frame_mser, 200, 400);
+    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+    cv::morphologyEx(frame_mser, frame_mser, cv::MORPH_CLOSE, element);
+    deleteAreasInRange(frame_mser, 2000, 20000);
+    deleteAreasInRange(frame_mser, 20, 50);
+    cv::imshow("Filtered MSER", frame_mser);
+  
+    // Hough Lines Transform
+    std::vector<cv::Vec4i> lines;
+    cv::HoughLinesP(frame_mser, lines, 1, CV_PI/180, 30, 7, 10);
+
+    // Draw the lines
+    cv::Mat line_image = frame.clone();
+    
+    for (const auto& line : lines)
+        cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
+
+    cv::imshow("Lines", line_image);
+
+    cv::waitKey(0);
+}
+
 
 std::vector<BBox> ParkingDetection::getParkings(cv::Mat frame) {
     // TODO: Implement this method
