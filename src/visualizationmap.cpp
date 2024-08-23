@@ -101,7 +101,7 @@ cv::Mat VisualizationMap::drawParkingMap(cv::Mat &frame, std::vector<BBox> bboxe
             // Draw the rotated rectangle on the map
             for (int j = 0; j < 4; j++) {
                 cv::line(map, vertices[j], vertices[(j + 1) % 4], cv::Scalar(0, 0, 0), 3);
-                cv::line(map_bbox, vertices[j], vertices[(j + 1) % 4], cv::Scalar(0, 0, 0), 3);
+                // cv::line(map_bbox, vertices[j], vertices[(j + 1) % 4], cv::Scalar(0, 0, 0), 3);
             }
         }
     }
@@ -116,7 +116,6 @@ cv::Mat VisualizationMap::drawParkingMap(cv::Mat &frame, std::vector<BBox> bboxe
 
     // Display the result
     cv::imshow("Frame with Map", frame);
-    cv::imshow("BBoxes", map_bbox);
     cv::waitKey(0);
     
     return frame;
