@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
             std::cerr << "Invalid input" << std::endl;
             return -1;
         }
-        
+        /*
         // Show real image bounding box
         Mat realBBoxes = parking.clone();
         real_bboxes = parseParkingXML(bboxesPaths[0][i]);
@@ -121,13 +121,13 @@ int main(int argc, char** argv) {
         }
         imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes);
-        
+        */
          
 
        // PARKING DETECTION
-        //ParkingDetection pd;
-        //pd.detect(parking);
-        //pd.draw(parking);
+        ParkingDetection pd;
+        pd.detect(parking);
+        pd.draw(parking);
         
         waitKey(0);
         cv::destroyAllWindows();

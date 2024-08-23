@@ -1,6 +1,5 @@
 #include "parkingdetection.h"
 #include <opencv2/ximgproc.hpp>
-#include <opencv2/ximgproc.hpp>
 
 ParkingDetection::ParkingDetection(std::vector<BBox> parkings) : parkings(parkings) {}
 
@@ -14,10 +13,10 @@ void removeIsolatedPixels(cv::Mat &img, int neighborhoodSize, int minPixels) {
     if (neighborhoodSize % 2 == 0) {
         neighborhoodSize += 1;
     }
-
+    
     // Create a copy of the original image to modify
     cv::Mat output = img.clone();
-
+    
     int offset = neighborhoodSize / 2;
 
     for (int y = offset; y < img.rows - offset; ++y) {
@@ -71,213 +70,38 @@ void deleteAreasInRange(cv::Mat &img, int minSize, int maxSize) {
     }
 }
 
-
-void deleteWeakAreas(cv::Mat &img, int numAreas, int numPixels) {
-    int rows = img.rows;
-    int cols = img.cols;
-
-    // Calculate the size of each square area
-    int blockSizeX = cols / numAreas;
-    int blockSizeY = rows / numAreas;
-
-    // Iterate over each block
-    for (int i = 0; i < numAreas; ++i) {
-        for (int j = 0; j < numAreas; ++j) {
-            // Define the region of interest (ROI) for the current block
-            int startX = j * blockSizeX;
-            int startY = i * blockSizeY;
-
-            // Ensure the last block covers the remaining pixels (in case cols/numAreas or rows/numAreas is not a perfect division)
-            int width = (j == numAreas - 1) ? cols - startX : blockSizeX;
-            int height = (i == numAreas - 1) ? rows - startY : blockSizeY;
-
-            cv::Rect roi(startX, startY, width, height);
-            cv::Mat block = img(roi);
-
-            // Draw the rectangle on the original image
-            //cv::rectangle(img, roi, cv::Scalar(127), 1); 
-
-            // Count the number of pixels with a value of 255 in the current block
-            int count = cv::countNonZero(block == 255);
-
-            // If the count is less than or equal to numPixels, set all pixels in the block to 0
-            if (count <= numPixels) {
-                img(roi).setTo(cv::Scalar(0));  
+std::vector<cv::Vec4i> closest_neighbor_line(cv::Mat corners) {
+    std::vector<cv::Vec4i> lines;
+    
+    // Iterate over all pixels in the image
+    for(int i = 0; i < corners.rows; i++) {
+        for(int j = 0; j < corners.cols; j++) {
+            if(corners.at<uchar>(i, j) == 255) {
+                // Found a white pixel, now search for the closest neighbor
+                bool found = false;
+                int radius = 1;
+                
+                while(!found) {
+                    // Expand the search radius until a point is found
+                    for(int k = i - radius; k <= i + radius; k++) {
+                        for(int l = j - radius; l <= j + radius; l++) {
+                            if(k >= 0 && k < corners.rows && l >= 0 && l < corners.cols) {
+                                if(corners.at<uchar>(k, l) == 255 && !(k == i && l == j)) {
+                                    // Found a different white pixel, create a line
+                                    lines.push_back(cv::Vec4i(j, i, l, k));
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if(found) break;
+                    }
+                    radius++;
+                }
             }
         }
     }
-}
-/*
-cv::Mat imageQuantization(cv::Mat frame, int clusters, int iterations) {
-    // Convert frame to a floating point format
-    cv::Mat samples(frame.total(), 3, CV_32F);
-    auto samples_ptr = samples.ptr<float>(0);
-
-    // Prepare the data for k-means by flattening the image
-    for(int x = 0; x < frame.rows; x++) {
-        auto frame_begin = frame.ptr<uchar>(x);
-        auto frame_end = frame_begin + frame.cols * frame.channels();
-
-        for(auto frame_ptr = frame_begin; frame_ptr != frame_end; frame_ptr += frame.channels()) {
-            samples_ptr[0] = static_cast<float>(frame_ptr[0]);
-            samples_ptr[1] = static_cast<float>(frame_ptr[1]);
-            samples_ptr[2] = static_cast<float>(frame_ptr[2]);
-            samples_ptr += 3;
-        }
-    }
-
-    // Perform k-means clustering
-    cv::Mat labels, centers;
-    cv::TermCriteria criteria(cv::TermCriteria::EPS + cv::TermCriteria::MAX_ITER, 10, 1.0);
-
-    cv::kmeans(samples, clusters, labels, criteria, iterations, cv::KMEANS_PP_CENTERS, centers);
-
-    // Create the clustered image
-    cv::Mat clustered_image(frame.size(), frame.type());
-    samples_ptr = samples.ptr<float>(0); // Reset the pointer to the start
-
-    for(int x = 0; x < frame.rows; x++) {
-        auto frame_ptr = clustered_image.ptr<uchar>(x);
-        auto labels_ptr = labels.ptr<int>(x * frame.cols);
-
-        for(int y = 0; y < frame.cols; y++, frame_ptr += frame.channels(), labels_ptr++) {
-            int cluster_id = *labels_ptr;
-            auto centers_ptr = centers.ptr<float>(cluster_id);
-
-            frame_ptr[0] = static_cast<uchar>(centers_ptr[0]);
-            frame_ptr[1] = static_cast<uchar>(centers_ptr[1]);
-            frame_ptr[2] = static_cast<uchar>(centers_ptr[2]);
-        }
-    }
-
-    return clustered_image;
-}
-
-*/
-
-
-
-void ParkingDetection::detect(cv::Mat &frame) {
-    // Gamma enhancement
-    /*float gamma = 4.5;
-    unsigned char lut[256];
-    for (int i = 0; i < 256; i++)
-        lut[i] = cv::saturate_cast<uchar>(pow((float)(i / 255.0), gamma) * 255.0f);
-    
-    cv::Mat frame_gamma = frame.clone();
-    cv::MatIterator_<cv::Vec3b> it, end;
-    for(it = frame_gamma.begin<cv::Vec3b>(), end = frame_gamma.end<cv::Vec3b>(); it != end; it++) {
-        (*it)[0] = lut[(*it)[0]];
-        (*it)[1] = lut[(*it)[1]];
-        (*it)[2] = lut[(*it)[2]];
-    }
-    */
-    // Convert the frame to HSV color space
-    cv::Mat frame_hsv;
-    cv::cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
-
-    cv::Mat green_mask;
-    std::vector<cv::Mat> hsv_channels;
-    cv::split(frame_hsv, hsv_channels);
-    cv::threshold(hsv_channels[1], green_mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-    cv::bitwise_not(green_mask, green_mask);
-    cv::Mat frame_gray, frame_blurred, sub;
-    cv::cvtColor(frame_hsv, frame, cv::COLOR_HSV2BGR);
-    cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
-    cv::GaussianBlur(frame_gray, frame_blurred, cv::Size(15, 15), 0);
-    cv::subtract(frame_gray, frame_blurred, sub);
-
-    cv::imshow("Frame gray", frame_gray);
-    cv::imshow("Sub", sub);
-    cv::imshow("Green mask", green_mask); 
-    cv::waitKey(0);
-}
-
-
-/*
-void ParkingDetection::detect(cv::Mat &frame) {
-    cv::Mat frame_gray;
-    cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
-
-    // Use Laplacian to detect the edges
-    cv::Mat frame_laplacian;
-    cv::Laplacian(frame_gray, frame_laplacian, CV_64F, 3, 1, 0, cv::BORDER_DEFAULT);
-    cv::convertScaleAbs(frame_laplacian, frame_laplacian);
-
-    // Apply threshold to the Laplacian image
-    //cv::threshold(frame_laplacian, frame_laplacian, 100, 255, cv::THRESH_BINARY);
-    cv::Mat mask_laplacian = cv::Mat::zeros(frame.size(), CV_8UC1);
-    cv::threshold(frame_gray, mask_laplacian, 120, 255, cv::THRESH_BINARY);
-
-
-    // SIFT detector
-    cv::Ptr<cv::SIFT> sift = cv::SIFT::create(); // hessianThreshold adjusted
-    std::vector<cv::KeyPoint> keypoints_frame;
-    cv::Mat descriptors_frame;
-    sift->detectAndCompute(frame_gray, cv::noArray(), keypoints_frame, descriptors_frame);
-    cv::Mat frame_with_keypoints;
-    cv::drawKeypoints(frame, keypoints_frame, frame_with_keypoints);
-
-    cv::Mat mask_sift = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for(int i = 0; i < keypoints_frame.size(); i++)
-        cv::circle(mask_sift, keypoints_frame[i].pt, 5, cv::Scalar(255), -1);
-    
-    //cv::dilate(mask_sift, mask_sift, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(9, 9)));
-    // Combine the mask and the frame, whether the color of the highlighted keypoints is 
-    // between a given threshold (the detect the parking spots lines), then we keep them
-    //cv::Mat temp;
-    //cv::bitwise_and(frame, frame, temp, mask);
-    //cv::cvtColor(temp, temp, cv::COLOR_BGR2GRAY);
-    //cv::threshold(temp, temp, 120, 255, cv::THRESH_BINARY);
-
-    cv::Mat temp;
-    cv::bitwise_and(mask_laplacian, mask_sift, temp);
-
-    // ORB detector
-    cv::Mat frame_bilateral;
-    cv::bilateralFilter(frame_gray, frame_bilateral, 5, 30, 50);
-    cv::Ptr<cv::ORB> orb = cv::ORB::create(5000);
-    std::vector<cv::KeyPoint> keypoints;
-    cv::Mat descriptors;
-    orb->detectAndCompute(frame_bilateral, cv::noArray(), keypoints, descriptors);
-
-    cv::Mat frame_with_keypoints_orb;
-    cv::drawKeypoints(frame, keypoints, frame_with_keypoints_orb);
-
-    // HSV color space
-    cv::Mat frame_hsv;
-    cv::cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
-
-    // Split the channels
-    std::vector<cv::Mat> hsv_channels;
-    cv::split(frame_hsv, hsv_channels);
-
-    cv::Mat v_channel = hsv_channels[2];
-
-    sift->detectAndCompute(v_channel, cv::noArray(), keypoints_frame, descriptors_frame);
-
-    cv::Mat frame_with_keypoints_v;
-    cv::drawKeypoints(frame, keypoints_frame, frame_with_keypoints_v);
-
-    cv::Mat mask_hsv = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for(int i = 0; i < keypoints.size(); i++)
-        cv::circle(mask_hsv, keypoints[i].pt, 2, cv::Scalar(255), -1);
-
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
-    cv::morphologyEx(mask_hsv, mask_hsv, cv::MORPH_CLOSE, element);
-
-    cv::Mat mask = cv::Mat::zeros(frame.size(), CV_8UC1);
-    cv::bitwise_and(mask_hsv, mask_laplacian, mask);
-    
-    cv::imshow("Frame", frame);
-    cv::imshow("Laplacian", frame_laplacian);
-    cv::imshow("Mask Laplacian", mask_laplacian);
-    cv::imshow("V Channel", v_channel);
-    cv::imshow("Frame with keypoints V", frame_with_keypoints_v);
-    cv::imshow("Mask HSV", mask_hsv);
-    cv::imshow("Mask Laplacian", mask_laplacian);
-    cv::imshow("Mask", mask);
-    cv::waitKey(0);
+    return lines;
 }
 
 
@@ -315,7 +139,83 @@ void enhanceWeakPointsNearStrongOnes(cv:: Mat &img, int neighborhoodSize, int mi
     }
     img = output;
 }
-                                    
+
+// Function to calculate the distance between two lines
+double calculateDistance(cv::Vec4i line1, cv::Vec4i line2) {
+    cv::Point p1(line1[0], line1[1]);
+    cv::Point p2(line1[2], line1[3]);
+    cv::Point p3(line2[0], line2[1]);
+    cv::Point p4(line2[2], line2[3]);
+
+    double xDistanceP1 = std::min(std::pow((p1.x - p3.x), 2), std::pow((p1.x - p4.x), 2));
+    double yDistanceP1 = std::min(std::pow((p1.y - p3.y), 2), std::pow((p1.y - p4.y), 2));
+    double distP1 = std::sqrt(xDistanceP1 + yDistanceP1);
+
+    double xDistanceP2 = std::min(std::pow((p2.x - p3.x), 2), std::pow((p2.x - p4.x), 2));
+    double yDistanceP2 = std::min(std::pow((p2.y - p3.y), 2), std::pow((p2.y - p4.y), 2));
+    double distP2 = std::sqrt(xDistanceP2 + yDistanceP2);
+
+    return std::min(distP1, distP2);
+}
+
+double calculateAngle(cv::Vec4i line) {
+    cv::Point p1(line[0], line[1]);
+    cv::Point p2(line[2], line[3]);
+    return atan2(p2.y - p1.y, p2.x - p1.x) * 180 / CV_PI;
+}
+
+cv::Vec4i mergeLines(const std::vector<cv::Vec4i>& lines) {
+    // Compute the average of the points and create a mean line
+    int x1_sum = 0, y1_sum = 0, x2_sum = 0, y2_sum = 0;
+
+    for (const auto& line : lines) {
+        x1_sum += line[0];
+        y1_sum += line[1];
+        x2_sum += line[2];
+        y2_sum += line[3];
+    }
+
+    int n = lines.size();
+    cv::Vec4i meanLine = cv::Vec4i(x1_sum / n, y1_sum / n, x2_sum / n, y2_sum / n);
+
+    // Extend the line for better visualization
+    cv::Point p1(meanLine[0], meanLine[1]);
+    cv::Point p2(meanLine[2], meanLine[3]);
+
+    cv::Point p1_new = p1 + 0.4 * (p1 - p2);
+    cv::Point p2_new = p2 + 0.4 * (p2 - p1);
+
+    return cv::Vec4i(p1_new.x, p1_new.y, p2_new.x, p2_new.y); 
+}
+
+std::vector<cv::Vec4i> unifySimilarLines(const std::vector<cv::Vec4i>& lines, double distanceThreshold, double angleThreshold) {
+    std::vector<cv::Vec4i> result;
+    std::vector<bool> merged(lines.size(), false);
+
+    for (size_t i = 0; i < lines.size(); i++) {
+        if (merged[i]) continue;
+
+        std::vector<cv::Vec4i> group = {lines[i]};
+        merged[i] = true;
+
+        for (size_t j = i + 1; j < lines.size(); j++) {
+            if (merged[j]) continue;
+
+            double distance = calculateDistance(lines[i], lines[j]);
+            double angleDiff = std::abs(calculateAngle(lines[i]) - calculateAngle(lines[j]));
+
+            if (distance < distanceThreshold && angleDiff < angleThreshold) {
+                group.push_back(lines[j]);
+                merged[j] = true;
+            }
+        }
+
+        result.push_back(mergeLines(group));
+    }
+
+    return result;
+}
+
 
 /*
 void ParkingDetection::detect(cv::Mat &frame) {
@@ -548,7 +448,6 @@ void ParkingDetection::detect(cv::Mat &frame) {
   
     // Hough Lines Transform
     std::vector<cv::Vec4i> lines;
-    //cv::HoughLinesP(frame_mser, lines, 1, CV_PI/180, 30, 7, 10);
     cv::HoughLinesP(frame_mser, lines, 1, CV_PI/180, 30, 15, 10);
     // Draw the lines
     cv::Mat line_image = frame.clone();
@@ -584,6 +483,65 @@ void ParkingDetection::detect(cv::Mat &frame) {
 
     cv::imshow("Lines", line_image);
     cv::imshow("Filtered lines", filtered_line_image);
+
+    
+    // Unify the similar lines
+    cv::Mat img = frame.clone();
+    double distanceThreshold = 20.0; // Distance threshold to consider lines close
+    double angleThreshold = 5.0;    // Angle threshold to consider lines similar (in degrees)
+
+    std::vector<cv::Vec4i> unifiedLines = unifySimilarLines(filtered_lines, distanceThreshold, angleThreshold);
+
+    // Draw the unified lines
+    for (const auto& line : unifiedLines) {
+        cv::line(img, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
+    }
+
+    imshow("Unified Lines", img);
+    
+    // Filter the lines based on the distance between them
+    
+    cv::Mat bounding_box = frame.clone();
+    
+    int minDistanceThreshold = 15;
+    int maxDistanceThreshold = 80;
+    
+    for (size_t i = 0; i < unifiedLines.size(); i++) {
+        cv::Vec4i nearest_line;
+        double min_distance = DBL_MAX; // Initialize with a large value
+
+        for (size_t j = 0; j < unifiedLines.size(); j++) {
+            if (i == j) continue; // Skip the same line
+
+            double distance = calculateDistance(unifiedLines[i], unifiedLines[j]);
+
+            // Find the nearest line pair that has a distance greater than minDistanceThreshold
+            if (distance > minDistanceThreshold && distance < maxDistanceThreshold && distance < min_distance) {
+                min_distance = distance;
+                nearest_line = unifiedLines[j];
+            }
+        }
+
+        // If a nearest line is found, draw the bounding box
+        if (min_distance < DBL_MAX) {
+            cv::Vec4i line1 = unifiedLines[i];
+            cv::Vec4i line2 = nearest_line;
+
+            // Calculate the four corners of the rectangle
+            cv::Point top_left(line1[0], line1[1]);
+            cv::Point top_right(line1[2], line1[3]);
+            cv::Point bottom_left(line2[0], line2[1]);
+            cv::Point bottom_right(line2[2], line2[3]);
+
+            // Draw the rectangle using the corners
+            cv::line(frame, top_left, top_right, cv::Scalar(0, 255, 0), 2);
+            cv::line(frame, top_right, bottom_right, cv::Scalar(0, 255, 0), 2);
+            cv::line(frame, bottom_right, bottom_left, cv::Scalar(0, 255, 0), 2);
+            cv::line(frame, bottom_left, top_left, cv::Scalar(0, 255, 0), 2);
+        }
+    }
+
+    cv::imshow("Bounding box", frame);
 
     cv::waitKey(0);
 }
