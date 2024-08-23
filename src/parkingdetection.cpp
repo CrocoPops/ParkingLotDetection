@@ -156,7 +156,7 @@ cv::Mat imageQuantization(cv::Mat frame, int clusters, int iterations) {
 */
 
 
-
+/*
 void ParkingDetection::detect(cv::Mat &frame) {
     // Gamma enhancement
     /*float gamma = 4.5;
@@ -171,7 +171,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
         (*it)[1] = lut[(*it)[1]];
         (*it)[2] = lut[(*it)[2]];
     }
-    */
+    
     // Convert the frame to HSV color space
     cv::Mat frame_hsv;
     cv::cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
@@ -192,7 +192,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::imshow("Green mask", green_mask); 
     cv::waitKey(0);
 }
-
+*/
 
 /*
 void ParkingDetection::detect(cv::Mat &frame) {
@@ -279,7 +279,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::imshow("Mask", mask);
     cv::waitKey(0);
 }
-
+*/
 
 void enhanceWeakPointsNearStrongOnes(cv:: Mat &img, int neighborhoodSize, int minNumStrongPixels, int threshold) {
     

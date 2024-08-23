@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
         Mat realBBoxes = parking.clone();
         real_bboxes = parseParkingXML(bboxesPaths[0][i]);
         for (auto& bbox : real_bboxes) {
-            bbox.toString();
+            // bbox.toString();
             //bbox.setOccupied(parkingMasks[3][i]);
             drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied(), false);
         }
