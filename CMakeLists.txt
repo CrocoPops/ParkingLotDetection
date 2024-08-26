@@ -23,6 +23,7 @@ set(SOURCES
     src/parkingdetection.cpp
     src/carsegmentation.cpp
     src/visualizationmap.cpp
+    src/metrics.cpp
     # Data objects
     src/bbox.cpp
     

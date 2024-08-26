@@ -7,6 +7,7 @@
 #include "parkingdetection.h"
 #include "carsegmentation.h"
 #include "visualizationmap.h"
+#include "metrics.h"
 
 using namespace cv;
 using namespace std;
@@ -128,7 +129,10 @@ int main(int argc, char** argv) {
         ParkingDetection pd;
         pd.detect(parking);
         pd.draw(parking);
-        
+        // mAP
+        std::cout << "METRICS: " << std::endl;
+        std::cout << computeMAP(real_bboxes, real_bboxes, 0.5) << std::endl;
+
         waitKey(0);
         cv::destroyAllWindows();
     }
