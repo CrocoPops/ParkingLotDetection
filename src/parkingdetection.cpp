@@ -3,24 +3,32 @@
 
 ParkingDetection::ParkingDetection(std::vector<BBox> parkings) : parkings(parkings) {}
 
-
-// Remove the isolated pixels that are far from the rest of the pixels
-// neighbrhoodSize: size of the neighborhood to consider (rectangular)
-// minPixels: minimum number of white pixels in the neighborhood to keep the pixel white
+/*
+Remove the isolated pixels that are far from the rest of the pixels
+PARAM:
+    img: input image
+    neighbrhoodSize: size of the neighborhood to consider (rectangular)
+    minPixels: minimum number of white pixels in the neighborhood to keep the pixel white
+*/
 
 void removeIsolatedPixels(cv::Mat &img, int neighborhoodSize, int minPixels) {
-    // Ensure the neighborhood size is odd to have a center pixel
-    if (neighborhoodSize % 2 == 0) {
-        neighborhoodSize += 1;
+    if (img.type() != CV_8UC1) {
+        std::cerr << "Image must be binary (CV_8UC1)" << std::endl;
+        return;
     }
+        
+    // Ensure the neighborhood size is odd to have a center pixel
+    if (neighborhoodSize % 2 == 0)
+        neighborhoodSize += 1;
+    
     
     // Create a copy of the original image to modify
     cv::Mat output = img.clone();
     
     int offset = neighborhoodSize / 2;
 
-    for (int y = offset; y < img.rows - offset; ++y) {
-        for (int x = offset; x < img.cols - offset; ++x) {
+    for (int y = offset; y < img.rows - offset; y++) {
+        for (int x = offset; x < img.cols - offset; x++) {
             if (img.at<uchar>(y, x) == 255) { // Only consider white pixels
                 // Define the neighborhood
                 cv::Rect neighborhood(x - offset, y - offset, neighborhoodSize, neighborhoodSize);
@@ -40,7 +48,13 @@ void removeIsolatedPixels(cv::Mat &img, int neighborhoodSize, int minPixels) {
     img = output;
 }
 
-// Based on the region's area, delete the region if the area is between minSize and maxSize
+/* 
+Based on the region's area, delete the region if the area is between minSize and maxSize
+PARAM:
+    img: input image
+    minSize: minimum area of the region to keep
+    maxSize: maximum area of the region to keep
+*/
 
 void deleteAreasInRange(cv::Mat &img, int minSize, int maxSize) {
     // Ensure the image is binary
@@ -70,6 +84,7 @@ void deleteAreasInRange(cv::Mat &img, int minSize, int maxSize) {
     }
 }
 
+/*
 std::vector<cv::Vec4i> closest_neighbor_line(cv::Mat corners) {
     std::vector<cv::Vec4i> lines;
     
@@ -104,15 +119,34 @@ std::vector<cv::Vec4i> closest_neighbor_line(cv::Mat corners) {
     return lines;
 }
 
+*/
+/*
+Set all the strong pixels and the weak pixels near the strong ones to 255; the others to 0
+PARAM:
+    img: input image
+    neighborhoodSize: size of the neighborhood to consider (rectangular)
+    minNumStrongPixels: minimum number of strong pixels in the neighborhood to keep the pixel white
+    threshold: threshold to consider a pixel as strong
+*/
 
 void enhanceWeakPointsNearStrongOnes(cv:: Mat &img, int neighborhoodSize, int minNumStrongPixels, int threshold) {
-    
-    // check if the threshold is valid
+    if (img.type() != CV_8UC1) {
+        std::cerr << "Image must be binary (CV_8UC1)" << std::endl;
+        return;
+    }
+
+
+    // Check if the threshold is valid
     if (threshold < 0 || threshold > 255) {
         std::cerr << "Threshold must be between 0 and 255" << std::endl;
         return;
     }
+
+    // Ensure the neighborhood size is odd to have a center pixel
+    if (neighborhoodSize % 2 == 0)
+        neighborhoodSize += 1;
     
+       
     
     cv::Mat output = cv::Mat::zeros(img.size(), CV_8UC1);
 
@@ -131,32 +165,48 @@ void enhanceWeakPointsNearStrongOnes(cv:: Mat &img, int neighborhoodSize, int mi
                         }
                     }
                 }
-                if (strongCount >= minNumStrongPixels || img.at<uchar>(y, x) >= threshold) {
+                if (strongCount >= minNumStrongPixels || img.at<uchar>(y, x) >= threshold) 
                     output.at<uchar>(y, x) = 255;
-                }
+                else 
+                    output.at<uchar>(y, x) = 0;
             }
         }
     }
     img = output;
 }
 
-// Function to calculate the distance between two lines
+/*
+Calculate the distance between two lines
+PARAM:
+    line1: first line
+    line2: second line
+*/
+
+
 double calculateDistance(cv::Vec4i line1, cv::Vec4i line2) {
     cv::Point p1(line1[0], line1[1]);
     cv::Point p2(line1[2], line1[3]);
     cv::Point p3(line2[0], line2[1]);
     cv::Point p4(line2[2], line2[3]);
 
-    double xDistanceP1 = std::min(std::pow((p1.x - p3.x), 2), std::pow((p1.x - p4.x), 2));
-    double yDistanceP1 = std::min(std::pow((p1.y - p3.y), 2), std::pow((p1.y - p4.y), 2));
-    double distP1 = std::sqrt(xDistanceP1 + yDistanceP1);
+    // Calculate the vector (p4 - p3)
+    cv::Point line2_vector = p4 - p3;
 
-    double xDistanceP2 = std::min(std::pow((p2.x - p3.x), 2), std::pow((p2.x - p4.x), 2));
-    double yDistanceP2 = std::min(std::pow((p2.y - p3.y), 2), std::pow((p2.y - p4.y), 2));
-    double distP2 = std::sqrt(xDistanceP2 + yDistanceP2);
+    // Calculate the vector perpendicular to line2_vector
+    cv::Point perpendicular_vector(-line2_vector.y, line2_vector.x);
 
-    return std::min(distP1, distP2);
+    // Calculate the distance using the dot product formula
+    double distance = std::abs((p1 - p3).dot(perpendicular_vector)) / cv::norm(perpendicular_vector);
+
+    return distance;
 }
+
+
+/*
+Calculate the angle of a line
+PARAM:
+    line: input line
+*/
 
 double calculateAngle(cv::Vec4i line) {
     cv::Point p1(line[0], line[1]);
@@ -164,6 +214,16 @@ double calculateAngle(cv::Vec4i line) {
     return atan2(p2.y - p1.y, p2.x - p1.x) * 180 / CV_PI;
 }
 
+/*
+Merge multiple lines into a single line
+PARAM:
+    lines: input lines
+*/
+
+
+/*
+
+*/
 cv::Vec4i mergeLines(const std::vector<cv::Vec4i>& lines) {
     // Compute the average of the points and create a mean line
     int x1_sum = 0, y1_sum = 0, x2_sum = 0, y2_sum = 0;
@@ -192,13 +252,13 @@ std::vector<cv::Vec4i> unifySimilarLines(const std::vector<cv::Vec4i>& lines, do
     std::vector<cv::Vec4i> result;
     std::vector<bool> merged(lines.size(), false);
 
-    for (size_t i = 0; i < lines.size(); i++) {
+    for (int i = 0; i < lines.size(); i++) {
         if (merged[i]) continue;
 
         std::vector<cv::Vec4i> group = {lines[i]};
         merged[i] = true;
 
-        for (size_t j = i + 1; j < lines.size(); j++) {
+        for (int j = i + 1; j < lines.size(); j++) {
             if (merged[j]) continue;
 
             double distance = calculateDistance(lines[i], lines[j]);
@@ -368,7 +428,6 @@ void ParkingDetection::detect(cv::Mat &frame) {
 void ParkingDetection::detect(cv::Mat &frame) {
 
     // Convert the frame to HSV color space
-    cv::Mat frame_backup = frame.clone();
     cv::Mat frame_hsv;
     cv::cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
 
@@ -378,8 +437,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::threshold(hsv_channels[1], green_mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
     
     cv::Mat frame_gray, frame_blurred, sub;
-    cv::cvtColor(frame_hsv, frame_backup, cv::COLOR_HSV2BGR);
-    cv::cvtColor(frame_backup, frame_gray, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
     cv::GaussianBlur(frame_gray, frame_blurred, cv::Size(15, 15), 0);
     cv::subtract(frame_gray, frame_blurred, sub);
 
@@ -421,7 +479,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::imshow("Sub enhanced", sub);
 
     
-    //MSER
+    // MSER
     cv::Ptr<cv::MSER> mser = cv::MSER::create();
     mser->setMinArea(50);
     std::vector<std::vector<cv::Point>> regions;
@@ -433,6 +491,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
             frame_mser.at<uchar>(point) = 255;
         }
     }
+    
     cv::imshow("MSER", frame_mser);
 
     
@@ -442,9 +501,8 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::morphologyEx(frame_mser, frame_mser, cv::MORPH_CLOSE, element);
     deleteAreasInRange(frame_mser, 2000, 20000);
     deleteAreasInRange(frame_mser, 20, 50);
-   // removeIsolatedPixels(frame_mser, 100, 150);
+
     cv::imshow("Filtered MSER", frame_mser);
-    cv::imwrite("../Lab4/mser.jpg", frame_mser);
   
     // Hough Lines Transform
     std::vector<cv::Vec4i> lines;
@@ -452,6 +510,9 @@ void ParkingDetection::detect(cv::Mat &frame) {
     // Draw the lines
     cv::Mat line_image = frame.clone();
     cv::Mat filtered_line_image = frame.clone();
+
+    
+
     
     // Filter the lines based on the angle
     std::vector<cv::Vec4i> filtered_lines;
@@ -487,7 +548,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
     
     // Unify the similar lines
     cv::Mat img = frame.clone();
-    double distanceThreshold = 20.0; // Distance threshold to consider lines close
+    double distanceThreshold = 0.5; // Distance threshold to consider lines close
     double angleThreshold = 5.0;    // Angle threshold to consider lines similar (in degrees)
 
     std::vector<cv::Vec4i> unifiedLines = unifySimilarLines(filtered_lines, distanceThreshold, angleThreshold);
@@ -506,11 +567,11 @@ void ParkingDetection::detect(cv::Mat &frame) {
     int minDistanceThreshold = 15;
     int maxDistanceThreshold = 80;
     
-    for (size_t i = 0; i < unifiedLines.size(); i++) {
+    for (int i = 0; i < unifiedLines.size(); i++) {
         cv::Vec4i nearest_line;
         double min_distance = DBL_MAX; // Initialize with a large value
 
-        for (size_t j = 0; j < unifiedLines.size(); j++) {
+        for (int j = 0; j < unifiedLines.size(); j++) {
             if (i == j) continue; // Skip the same line
 
             double distance = calculateDistance(unifiedLines[i], unifiedLines[j]);
