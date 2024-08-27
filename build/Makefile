@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/manuz/CV/ParkingLotDetection
+CMAKE_SOURCE_DIR = /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/manuz/CV/ParkingLotDetection/build
+CMAKE_BINARY_DIR = /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/manuz/CV/ParkingLotDetection/build/CMakeFiles /home/manuz/CV/ParkingLotDetection/build//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build/CMakeFiles /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/manuz/CV/ParkingLotDetection/build/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/eddy/Desktop/ParkingLotDet/ParkingLotDetection/build/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -201,6 +201,30 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
+src/metrics.o: src/metrics.cpp.o
+.PHONY : src/metrics.o
+
+# target to build an object file
+src/metrics.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/metrics.cpp.o
+.PHONY : src/metrics.cpp.o
+
+src/metrics.i: src/metrics.cpp.i
+.PHONY : src/metrics.i
+
+# target to preprocess a source file
+src/metrics.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/metrics.cpp.i
+.PHONY : src/metrics.cpp.i
+
+src/metrics.s: src/metrics.cpp.s
+.PHONY : src/metrics.s
+
+# target to generate assembly for a file
+src/metrics.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ParkingLot_analysis.dir/build.make CMakeFiles/ParkingLot_analysis.dir/src/metrics.cpp.s
+.PHONY : src/metrics.cpp.s
+
 src/parkingdetection.o: src/parkingdetection.cpp.o
 .PHONY : src/parkingdetection.o
 
@@ -291,6 +315,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/metrics.o"
+	@echo "... src/metrics.i"
+	@echo "... src/metrics.s"
 	@echo "... src/parkingdetection.o"
 	@echo "... src/parkingdetection.i"
 	@echo "... src/parkingdetection.s"

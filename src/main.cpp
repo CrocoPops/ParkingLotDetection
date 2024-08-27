@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
 
 
 
-    
+    /*
     // PARKING DETECTION & CLASSIFICATION REAL
     std::vector<BBox> real_bboxes;
     for(int i = 0; i < parkingImages[0].size(); i++) {
@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
         }
         imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes);
-        */
+        
          
 
        // PARKING DETECTION
@@ -135,15 +135,16 @@ int main(int argc, char** argv) {
 
         waitKey(0);
         cv::destroyAllWindows();
-    }
+    }*/
     
     
     // CAR SEGMENTATION
     
     // Array of vector, in position 0 there are the masks related of sequence 1
     // p_i = masks_i-1
-    /*
+    
     std::vector<cv::Mat> real_masks[4];
+    std::vector<cv::Mat> maskImagesObtained;
     for(int i = 1; i <= 5; i++) {
         for(int j = 0; j < parkingImages[i].size(); j++) {
         //for(int i = 0; i < 1; i++) {
@@ -159,12 +160,14 @@ int main(int argc, char** argv) {
             }
 
             CarSegmentation cs;
-            //cv::Mat mask = cs.detectCars(parking, parkingImages[0]);
-            cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
-            real_masks[i - 1].push_back(true_mask);
-            // maskImagesObtained.push_back(mask);
+            cv::Mat mask = cs.detectCars(parking, parkingImages[0]);
+            //cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
+            //real_masks[i - 1].push_back(true_mask);
+            maskImagesObtained.push_back(mask);
         }
-    }*/
+    }
+
+
     // PARKING DETECTION & CLASSIFICATION OUR MASKS
     /*for(int i = 0; i < parkingImages[0].size(); i++) {
         cv::Mat parking = parkingImages[0][i];
@@ -199,7 +202,8 @@ int main(int argc, char** argv) {
     // TODO: CAR SEGMENTATION
     // Categories: 1 - Car correctly parked, 2 - Car out of place
 
-    // TODO: 2D TOP-VIEW VISUALIZATION MAP
+    // 2D TOP-VIEW VISUALIZATION MAP
+    /*
     for(int i = 1; i <= 5; i++) {
         for(int j = 0; j < parkingImages[i].size(); j++) {
         //for(int i = 0; i < 1; i++) {
@@ -219,6 +223,7 @@ int main(int argc, char** argv) {
             map.drawParkingMap(parking, bboxes);
         }
     }
+    */
 
 
     return 0;

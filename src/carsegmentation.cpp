@@ -64,6 +64,173 @@ cv::Mat CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     return coloredMask;
 }
 
+// WORKS WELL
+cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+    // Apply mean shift filtering to segment the image
+    cv::Mat blurred;
+    cv::pyrMeanShiftFiltering(frame, blurred, 20, 45, 1.5);
+
+    // Initialize a mask with the same size as the blurred image
+    cv::Mat mask = cv::Mat::zeros(blurred.size(), CV_8UC1);
+
+    // Filter by intensity
+    cv::Mat frame_gray;
+    cv::cvtColor(blurred, frame_gray, cv::COLOR_BGR2GRAY);
+    for(int x = 0; x < frame_gray.rows; x++) {
+        for(int y = 0; y < frame_gray.cols; y++) {
+            if(frame_gray.at<uchar>(x, y) > 200 || frame_gray.at<uchar>(x, y) < 40) {
+                mask.at<uchar>(x, y) = 255;
+            }
+        }
+    }
+    /*
+    for(int i = 0; i < blurred.rows; i++) {
+        for(int j = 0; j < blurred.cols; j++) {
+            cv::Vec3b pixel = blurred.at<cv::Vec3b>(i, j);
+            if(pixel[0] > 200 && pixel[1] > 200 && pixel[2] > 200) {
+                mask.at<uchar>(i, j) = 255;  // White
+            } else if(pixel[0] < 40 && pixel[1] < 40 && pixel[2] < 40) {
+                mask.at<uchar>(i, j) = 255;  // Black
+            } else if(pixel[2] > 100 && pixel[0] < 60 && pixel[1] < 60) {
+                mask.at<uchar>(i, j) = 255;  // Red
+            }
+        }
+    }*/
+    // TODO: Filter by shape
+    
+    cv::Mat element3x3 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
+    cv::Mat element5x5 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    cv::Mat element7x7 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7));
+    cv::Mat element15x15 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(15, 15));
+    cv::Mat element21x21 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(21, 21));
+    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element15x15);
+    cv::morphologyEx(mask, mask, cv::MORPH_OPEN, element3x3);
+
+    // Create mask to filter out green areas (trees)
+    cv::Mat green_mask = cv::Mat::zeros(blurred.size(), CV_8UC1);
+    cv::Mat parking_hsv;
+    cv::cvtColor(empty_parkings[0], parking_hsv, cv::COLOR_BGR2HSV);
+    std::vector<cv::Mat> hsv_channels;
+    cv::split(parking_hsv, hsv_channels);
+    cv::threshold(hsv_channels[1], green_mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    cv::morphologyEx(green_mask, green_mask, cv::MORPH_OPEN, element15x15);
+    cv::dilate(green_mask, green_mask, element15x15);
+    cv::morphologyEx(green_mask, green_mask, cv::MORPH_CLOSE, element21x21);
+    cv::bitwise_not(green_mask, green_mask);
+
+    
+    cv::Mat edges;
+    cv::Canny(blurred, edges, 75, 225);
+    cv::bitwise_and(edges, green_mask, edges);
+
+    cv::bitwise_and(mask, green_mask, mask);
+    cv::morphologyEx(mask, mask, cv::MORPH_OPEN, element5x5);
+    //cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element21x21);
+    // Delete small connected components
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    for(int i = 0; i < contours.size(); i++)
+        if(cv::contourArea(contours[i]) < 400)
+            cv::drawContours(mask, contours, i, cv::Scalar(0), cv::FILLED);
+
+    cv::Mat output = frame.clone();
+    cv::Mat red_mask = cv::Mat::zeros(frame.size(), CV_8UC3);
+    red_mask.setTo(cv::Scalar(0, 0, 255), mask == 255);
+    cv::addWeighted(frame, 1, red_mask, 0.7, 0, output);
+
+    // Display the results
+    cv::imshow("Frame", frame);
+    cv::imshow("Mean Shift Segmentation", blurred);
+    cv::imshow("Green Mask", green_mask);
+    cv::imshow("Edges", edges);
+    cv::imshow("Mean Shift Mask", mask);
+    cv::imshow("Result", output);
+    cv::waitKey(0);
+    
+    return cv::Mat();  // Return the result mask
+}
+
+
+/*
+cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+    cv::Mat frame_gray;
+    cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
+
+    std::vector<cv::Mat> empty_parking_subtracted;
+    for(cv::Mat empty_parking : empty_parkings) {
+        cv::Mat empty_parking_gray;
+        cv::cvtColor(empty_parking, empty_parking_gray, cv::COLOR_BGR2GRAY);
+        cv::Mat diff(frame.size(), CV_8UC1);
+        for(int x = 0; x < frame_gray.rows; x++)
+            for(int y = 0; y < frame_gray.cols; y++)
+                diff.at<uchar>(x, y) = std::abs(frame_gray.at<uchar>(x, y) - empty_parking_gray.at<uchar>(x, y));
+        empty_parking_subtracted.push_back(diff);
+    }
+
+    cv::Mat median = cv::Mat::zeros(frame.size(), CV_8UC1);
+    for(int x = 0; x < frame_gray.rows; x++) {
+        for(int y = 0; y < frame_gray.cols; y++) {
+            std::vector<uchar> values;
+            for(const cv::Mat& empty_parking_sub : empty_parking_subtracted) {
+                values.push_back(empty_parking_sub.at<uchar>(x, y));
+            }
+            std::sort(values.begin(), values.end());
+            median.at<uchar>(x, y) = values[values.size() / 2];
+        }
+    }
+
+    cv::Mat mask;
+    cv::threshold(median, mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+
+    cv::Mat edges;
+    cv::Canny(frame_gray, edges, 50, 150);
+
+    // MSER (Maximally Stable Extremal Regions) to detect RoIs
+    cv::Ptr<cv::MSER> mser = cv::MSER::create();
+    std::vector<std::vector<cv::Point>> mser_regions;
+    std::vector<cv::Rect> mser_bboxes;
+    mser->detectRegions(frame_gray, mser_regions, mser_bboxes);
+
+    cv::Mat mser_mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+    for(const auto& contour : mser_regions)
+        if(cv::contourArea(contour) > 1000)
+            cv::drawContours(mser_mask, std::vector<std::vector<cv::Point>>{contour}, 0, cv::Scalar(255), cv::FILLED);
+    
+    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7));
+    cv::morphologyEx(mser_mask, mser_mask, cv::MORPH_CLOSE, element);
+
+    // Delete small regions
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+    for(int i = 0; i < contours.size(); i++)
+        if(cv::contourArea(contours[i]) < 250)
+            cv::drawContours(mask, contours, i, cv::Scalar(0), cv::FILLED);
+
+    cv::Mat output;
+    cv::bitwise_and(mser_mask, mask, output);
+
+    // Canny for contours detection
+    cv::Mat edges_inv;
+    cv::bitwise_not(edges, edges_inv);
+    cv::bitwise_and(edges_inv, output, output);
+
+    //cv::morphologyEx(output, output, cv::MORPH_CLOSE, cv::Mat::ones(7, 7, CV_8U));
+
+       
+    cv::morphologyEx(output, output, cv::MORPH_CLOSE, cv::Mat::ones(11, 11, CV_8U));
+
+    cv::imshow("Frame", frame); 
+    cv::imshow("Median", median);
+    cv::imshow("Edges", edges);
+    cv::imshow("Mask", mask);
+    cv::imshow("MSER Mask", mser_mask);
+    cv::imshow("Output", output);
+    cv::waitKey(0);
+    return cv::Mat();
+}
+*/
+
+
 /*
 cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
     // Convert the current frame to grayscale
@@ -108,8 +275,51 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
     return median;
 }
 */
+/*
+cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) { 
+    // Background subtraction with every empty parking lot, then take the median
+    cv::Mat frame_yuv;
+    cv::cvtColor(frame, frame_yuv, cv::COLOR_BGR2YUV);
 
+    std::vector<cv::Mat> yuv_channels;
+    cv::split(frame_yuv, yuv_channels);
 
+    cv::Mat frame_y = yuv_channels[0];
+
+    std::vector<cv::Mat> empty_parking_subtracted;
+    for(const cv::Mat& empty_parking : empty_parkings) {
+        cv::Mat empty_parking_yuv;
+        cv::cvtColor(empty_parking, empty_parking_yuv, cv::COLOR_BGR2YUV);
+
+        std::vector<cv::Mat> empty_parking_channels;
+        cv::split(empty_parking_yuv, empty_parking_channels);
+
+        cv::Mat empty_parking_y = empty_parking_channels[0];
+
+        cv::Mat diff;
+        cv::absdiff(frame_y, empty_parking_y, diff);
+        empty_parking_subtracted.push_back(diff);
+    }
+
+    cv::Mat median(frame.size(), CV_8UC1);
+    for(int x = 0; x < median.rows; x++) {
+        for(int y = 0; y < median.cols; y++) {
+            std::vector<uchar> values;
+            for(const cv::Mat& empty_parking_sub : empty_parking_subtracted) {
+                values.push_back(empty_parking_sub.at<uchar>(x, y));
+            }
+            std::sort(values.begin(), values.end());
+            median.at<uchar>(x, y) = values[values.size() / 2];
+        }
+    }
+
+    cv::imshow("Frame", frame);
+    cv::imshow("Median", median);
+    cv::waitKey(0);
+    return cv::Mat();
+}
+
+/*
 cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) { 
     cv::Mat frame_gray;
     cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
@@ -264,7 +474,7 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
 
     return output;
 }
-
+*/
 
 
 
