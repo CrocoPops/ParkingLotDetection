@@ -224,6 +224,33 @@ PARAM:
 /*
 
 */
+
+
+/* 
+Sort the line's vertices based on their position in the image
+PARAM:
+    lines: input lines
+*/
+
+std::vector<cv::Vec4i> sortLinesVertices(const std::vector<cv::Vec4i> lines) {
+    std::vector<cv::Vec4i> sortedLines;
+
+    for (const auto& line : lines) {
+        cv::Point p1(line[0], line[1]);
+        cv::Point p2(line[2], line[3]);
+
+        // Sort the points based on their x-coordinate
+        if (p1.x < p2.x) {
+            sortedLines.push_back(cv::Vec4i(p1.x, p1.y, p2.x, p2.y));
+        } else {
+            sortedLines.push_back(cv::Vec4i(p2.x, p2.y, p1.x, p1.y));
+        }
+    }
+
+    return sortedLines;
+}
+
+
 cv::Vec4i mergeLines(const std::vector<cv::Vec4i>& lines) {
     // Compute the average of the points and create a mean line
     int x1_sum = 0, y1_sum = 0, x2_sum = 0, y2_sum = 0;
@@ -507,17 +534,19 @@ void ParkingDetection::detect(cv::Mat &frame) {
     // Hough Lines Transform
     std::vector<cv::Vec4i> lines;
     cv::HoughLinesP(frame_mser, lines, 1, CV_PI/180, 30, 15, 10);
+    
     // Draw the lines
     cv::Mat line_image = frame.clone();
     cv::Mat filtered_line_image = frame.clone();
 
     
-
+    // Sort the line's vertices based on their position in the image
+    std::vector<cv::Vec4i> sortedLines = sortLinesVertices(lines);
     
     // Filter the lines based on the angle
     std::vector<cv::Vec4i> filtered_lines;
     std::vector<double> m;
-    for (const auto& line : lines) {
+    for (const auto& line : sortedLines) {
         double angle = atan2(line[3] - line[1], line[2] - line[0]) * 180 / CV_PI;
         
         m.push_back((double)(line[3] - line[1]) / (double)(line[2] - line[0]));
@@ -545,7 +574,9 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::imshow("Lines", line_image);
     cv::imshow("Filtered lines", filtered_line_image);
 
-    
+   
+
+
     // Unify the similar lines
     cv::Mat img = frame.clone();
     double distanceThreshold = 0.5; // Distance threshold to consider lines close
