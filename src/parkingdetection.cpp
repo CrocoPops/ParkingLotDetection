@@ -221,17 +221,6 @@ double calculateDistance(const cv::Vec4i& line1, const cv::Vec4i& line2) {
 }
 
 
-/*
-Calculate the angle of a line
-PARAM:
-    line: input line
-*/
-
-double calculateAngle(cv::Vec4i line) {
-    cv::Point p1(line[0], line[1]);
-    cv::Point p2(line[2], line[3]);
-    return atan2(p2.y - p1.y, p2.x - p1.x) * 180 / CV_PI;
-}
 
 /*
 Merge multiple lines into a single line
@@ -269,6 +258,80 @@ std::vector<cv::Vec4i> sortLinesVertices(const std::vector<cv::Vec4i> lines) {
     return sortedLines;
 }
 
+
+/*
+Delete short lines
+PARAM:
+    lines: input lines
+    minLength: minimum length of the line to keep
+*/
+
+std::vector<cv::Vec4i> deleteShortLines(const std::vector<cv::Vec4i>& lines, double minLength) {
+    std::vector<cv::Vec4i> result;
+
+    for (const auto& line : lines) {
+        cv::Point p1(line[0], line[1]);
+        cv::Point p2(line[2], line[3]);
+
+        double length = cv::norm(p1 - p2);
+
+        if (length >= minLength) {
+            result.push_back(line);
+        }
+    }
+
+    return result;
+}
+
+
+/*
+Compute the angle of a line
+PARAM:
+    line: input line
+*/
+double calculateAngle(const cv::Vec4i& line) {
+    double dy = line[3] - line[1];
+    double dx = line[2] - line[0];
+    return std::atan2(dy, dx) * 180.0 / CV_PI; // Angle in degrees
+}
+
+/*
+Find K mean values of similar lines by angle and filter them
+PARAM:
+lines: set of input lines
+K = # groups of lines by angle
+angleOffset = offset respect the mean for considering a line in a group
+*/
+std::vector<cv::Vec4i> filterLinesByKMeans(const std::vector<cv::Vec4i>& lines, int K, double angleOffset) {
+    if (lines.empty() || K <= 0) {
+        return {}; 
+    }
+
+    // Calculate the angle of each line
+    std::vector<float> angles;
+    for (const auto& line : lines) {
+        angles.push_back(static_cast<float>(calculateAngle(line)));
+    }
+
+    // Apply K-Means clustering on angles
+    cv::Mat labels, centers;
+    cv::kmeans(angles, K, labels,
+               cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 10, 1.0),
+               3, cv::KMEANS_PP_CENTERS, centers);
+
+    // Filter lines that are within the angleOffset of any cluster center
+    std::vector<cv::Vec4i> filteredLines;
+    for (int i = 0; i < lines.size(); i++) {
+        float angle = angles[i];
+        float center = centers.at<float>(labels.at<int>(i), 0);
+
+        if (std::abs(angle - center) <= angleOffset) {
+            filteredLines.push_back(lines[i]);
+        }
+    }
+
+    return filteredLines;
+}
 
 cv::Vec4i mergeLines(const std::vector<cv::Vec4i>& lines) {
      if (lines.empty()) {
@@ -594,11 +657,13 @@ void ParkingDetection::detect(cv::Mat &frame) {
     // Sort the line's vertices based on their position in the image
     std::vector<cv::Vec4i> sortedLines = sortLinesVertices(lines);
     
+
+    /*
     // Filter the lines based on the angle
     std::vector<cv::Vec4i> filtered_lines;
     std::vector<double> m;
     for (const auto& line : sortedLines) {
-        double angle = atan2(line[3] - line[1], line[2] - line[0]) * 180 / CV_PI;
+        double angle = calculateAngle(line);
         
         m.push_back((double)(line[3] - line[1]) / (double)(line[2] - line[0]));
     }
@@ -610,7 +675,11 @@ void ParkingDetection::detect(cv::Mat &frame) {
             filtered_lines.push_back(sortedLines[i]);
         }
     }
+*/
 
+
+    // Angle "K-means" clustering
+    std::vector<cv::Vec4i> filtered_lines = filterLinesByKMeans(sortedLines, 4, 15);
 
 
     for (const auto& line : lines)
@@ -652,10 +721,15 @@ void ParkingDetection::detect(cv::Mat &frame) {
     std::vector<cv::Vec4i> sortedLines_lsd = sortLinesVertices(lsd_lines);
     
     // Filter the lines based on the angle
-    std::vector<cv::Vec4i> filtered_lines_lsd;
-    m.clear();
+    std::vector<cv::Vec4i> filtered_lines_lsd = filterLinesByKMeans(sortedLines_lsd, 4, 15);
+  
+  
+  
+    /*std::vector<cv::Vec4i> filtered_lines_lsd;
+    std::vector<double> m;
+    double m_threshold = 1;
     for (const auto& line : sortedLines_lsd) {
-        double angle = atan2(line[3] - line[1], line[2] - line[0]) * 180 / CV_PI;
+        double angle = calculateAngle(line);
         
         m.push_back((double)(line[3] - line[1]) / (double)(line[2] - line[0]));
     }
@@ -666,12 +740,16 @@ void ParkingDetection::detect(cv::Mat &frame) {
             filtered_lines_lsd.push_back(sortedLines_lsd[i]);
         }
     }
-
+*/
 
     for (const auto& line : filtered_lines_lsd)
         cv::line(filtered_line_image_lsd, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
 
 
+
+    
+
+    
 
     cv::imshow("Filtered lines LSD", filtered_line_image_lsd);
 
@@ -681,6 +759,15 @@ void ParkingDetection::detect(cv::Mat &frame) {
     unifiedLines.insert(unifiedLines.end(), filtered_lines.begin(), filtered_lines.end());
     unifiedLines.insert(unifiedLines.end(), filtered_lines_lsd.begin(), filtered_lines_lsd.end());
 
+    
+    // Delete short lines
+    double minLength = 17;
+    unifiedLines = deleteShortLines(unifiedLines, minLength);
+
+    // Angle "K-means" clustering
+    unifiedLines = filterLinesByKMeans(unifiedLines, 4, 15.0);
+    
+
     // Draw the unified lines
     cv::Mat unifiedImg = frame.clone();
 
@@ -688,6 +775,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
         cv::line(unifiedImg, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
     }
 
+    
     imshow("Unified Lines  ", unifiedImg);
 
     
@@ -704,11 +792,8 @@ void ParkingDetection::detect(cv::Mat &frame) {
         cv::line(img, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
     }
 
+
     imshow("Unified Lines", img);
-
-
-
-
 
 
     
