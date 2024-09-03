@@ -175,44 +175,52 @@ void enhanceWeakPointsNearStrongOnes(cv:: Mat &img, int neighborhoodSize, int mi
     img = output;
 }
 
+
+
+// Utility function to compute the dot product of two vectors
+double dotProduct(const cv::Point2f& a, const cv::Point2f& b) {
+    return a.x * b.x + a.y * b.y;
+}
+
+// Utility function to compute the distance between two points
+double distance(const cv::Point2f& a, const cv::Point2f& b) {
+    return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+}
+
+// Utility function to project a point onto a line segment and clamp it to segment bounds
+cv::Point2f projectPointOntoLineSegment(const cv::Point2f& p, const cv::Point2f& a, const cv::Point2f& b) {
+    cv::Point2f ab = b - a;
+    double t = dotProduct(p - a, ab) / dotProduct(ab, ab);
+    t = std::max(0.0, std::min(1.0, t));
+    return a + t * ab;
+}
+
 /*
 Calculate the distance between two lines
 PARAM:
     line1: first line
     line2: second line
 */
+double calculateDistance(const cv::Vec4i& line1, const cv::Vec4i& line2) {
+    cv::Point2f p1(line1[0], line1[1]);
+    cv::Point2f p2(line1[2], line1[3]);
+    cv::Point2f p3(line2[0], line2[1]);
+    cv::Point2f p4(line2[2], line2[3]);
 
+    double minDist = std::numeric_limits<double>::max();
 
-double calculateDistance(cv::Vec4i line1, cv::Vec4i line2) {
-    cv::Point p1(line1[0], line1[1]);
-    cv::Point p2(line1[2], line1[3]);
-    cv::Point p3(line2[0], line2[1]);
-    cv::Point p4(line2[2], line2[3]);
+    // Check distance between each endpoint of the first segment to the second segment
+    minDist = std::min(minDist, distance(p1, projectPointOntoLineSegment(p1, p3, p4)));
+    minDist = std::min(minDist, distance(p2, projectPointOntoLineSegment(p2, p3, p4)));
 
-    // Calculate the vector (p4 - p3)
-    cv::Point line2_vector = p4 - p3;
+    // Check distance between each endpoint of the second segment to the first segment
+    minDist = std::min(minDist, distance(p3, projectPointOntoLineSegment(p3, p1, p2)));
+    minDist = std::min(minDist, distance(p4, projectPointOntoLineSegment(p4, p1, p2)));
 
-    // Calculate the vector perpendicular to line2_vector
-    cv::Point perpendicular_vector(-line2_vector.y, line2_vector.x);
-
-    // Calculate the distance using the dot product formula
-    double distance = std::abs((p1 - p3).dot(perpendicular_vector)) / cv::norm(perpendicular_vector);
-
-    return distance;
+    return minDist;
 }
 
 
-/*
-Calculate the angle of a line
-PARAM:
-    line: input line
-*/
-
-double calculateAngle(cv::Vec4i line) {
-    cv::Point p1(line[0], line[1]);
-    cv::Point p2(line[2], line[3]);
-    return atan2(p2.y - p1.y, p2.x - p1.x) * 180 / CV_PI;
-}
 
 /*
 Merge multiple lines into a single line
@@ -251,28 +259,131 @@ std::vector<cv::Vec4i> sortLinesVertices(const std::vector<cv::Vec4i> lines) {
 }
 
 
-cv::Vec4i mergeLines(const std::vector<cv::Vec4i>& lines) {
-    // Compute the average of the points and create a mean line
-    int x1_sum = 0, y1_sum = 0, x2_sum = 0, y2_sum = 0;
+/*
+Delete short lines
+PARAM:
+    lines: input lines
+    minLength: minimum length of the line to keep
+*/
+
+std::vector<cv::Vec4i> deleteShortLines(const std::vector<cv::Vec4i>& lines, double minLength) {
+    std::vector<cv::Vec4i> result;
 
     for (const auto& line : lines) {
-        x1_sum += line[0];
-        y1_sum += line[1];
-        x2_sum += line[2];
-        y2_sum += line[3];
+        cv::Point p1(line[0], line[1]);
+        cv::Point p2(line[2], line[3]);
+
+        double length = cv::norm(p1 - p2);
+
+        if (length >= minLength) {
+            result.push_back(line);
+        }
     }
 
-    int n = lines.size();
-    cv::Vec4i meanLine = cv::Vec4i(x1_sum / n, y1_sum / n, x2_sum / n, y2_sum / n);
+    return result;
+}
 
-    // Extend the line for better visualization
-    cv::Point p1(meanLine[0], meanLine[1]);
-    cv::Point p2(meanLine[2], meanLine[3]);
 
-    cv::Point p1_new = p1 + 0.4 * (p1 - p2);
-    cv::Point p2_new = p2 + 0.4 * (p2 - p1);
+/*
+Compute the angle of a line
+PARAM:
+    line: input line
+*/
+double calculateAngle(const cv::Vec4i& line) {
+    double dy = line[3] - line[1];
+    double dx = line[2] - line[0];
+    return std::atan2(dy, dx) * 180.0 / CV_PI; // Angle in degrees
+}
 
-    return cv::Vec4i(p1_new.x, p1_new.y, p2_new.x, p2_new.y); 
+/*
+Find K mean values of similar lines by angle and filter them
+PARAM:
+lines: set of input lines
+K = # groups of lines by angle
+angleOffset = offset respect the mean for considering a line in a group
+*/
+std::vector<cv::Vec4i> filterLinesByKMeans(const std::vector<cv::Vec4i>& lines, int K, double angleOffset) {
+    if (lines.empty() || K <= 0) {
+        return {}; 
+    }
+
+    // Calculate the angle of each line
+    std::vector<float> angles;
+    for (const auto& line : lines) {
+        angles.push_back(static_cast<float>(calculateAngle(line)));
+    }
+
+    // Apply K-Means clustering on angles
+    cv::Mat labels, centers;
+    cv::kmeans(angles, K, labels,
+               cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 10, 1.0),
+               3, cv::KMEANS_PP_CENTERS, centers);
+
+    // Filter lines that are within the angleOffset of any cluster center
+    std::vector<cv::Vec4i> filteredLines;
+    for (int i = 0; i < lines.size(); i++) {
+        float angle = angles[i];
+        float center = centers.at<float>(labels.at<int>(i), 0);
+
+        if (std::abs(angle - center) <= angleOffset) {
+            filteredLines.push_back(lines[i]);
+        }
+    }
+
+    return filteredLines;
+}
+
+cv::Vec4i mergeLines(const std::vector<cv::Vec4i>& lines) {
+     if (lines.empty()) {
+        return cv::Vec4i(); // Return an empty line if there are no lines in the input
+    }
+
+    // Initialize variables to track the maximum distance and corresponding points
+    double maxDist = 0;
+    cv::Point2f p1_max, p2_max;
+
+    for (const auto& line1 : lines) {
+        for (const auto& line2 : lines) {
+            // Points from the first line
+            cv::Point2f p1(line1[0], line1[1]);
+            cv::Point2f p2(line1[2], line1[3]);
+
+            // Points from the second line
+            cv::Point2f p3(line2[0], line2[1]);
+            cv::Point2f p4(line2[2], line2[3]);
+
+            // Calculate distances between all combinations of endpoints
+            double d1 = cv::norm(p1 - p3);
+            double d2 = cv::norm(p1 - p4);
+            double d3 = cv::norm(p2 - p3);
+            double d4 = cv::norm(p2 - p4);
+
+            // Find the maximum distance
+            if (d1 > maxDist) {
+                maxDist = d1;
+                p1_max = p1;
+                p2_max = p3;
+            }
+            if (d2 > maxDist) {
+                maxDist = d2;
+                p1_max = p1;
+                p2_max = p4;
+            }
+            if (d3 > maxDist) {
+                maxDist = d3;
+                p1_max = p2;
+                p2_max = p3;
+            }
+            if (d4 > maxDist) {
+                maxDist = d4;
+                p1_max = p2;
+                p2_max = p4;
+            }
+        }
+    }
+
+    // Return the new line with the vertices that are farthest apart
+    return cv::Vec4i(p1_max.x, p1_max.y, p2_max.x, p2_max.y);
 }
 
 std::vector<cv::Vec4i> unifySimilarLines(const std::vector<cv::Vec4i>& lines, double distanceThreshold, double angleThreshold) {
@@ -290,14 +401,17 @@ std::vector<cv::Vec4i> unifySimilarLines(const std::vector<cv::Vec4i>& lines, do
 
             double distance = calculateDistance(lines[i], lines[j]);
             double angleDiff = std::abs(calculateAngle(lines[i]) - calculateAngle(lines[j]));
-
+        
             if (distance < distanceThreshold && angleDiff < angleThreshold) {
                 group.push_back(lines[j]);
                 merged[j] = true;
             }
         }
-
-        result.push_back(mergeLines(group));
+        if(group.size() > 1)
+            result.push_back(mergeLines(group));
+        // Else there are no lines to merge, maintain the original line
+        else
+            result.push_back(group[0]);
     }
 
     return result;
@@ -543,11 +657,13 @@ void ParkingDetection::detect(cv::Mat &frame) {
     // Sort the line's vertices based on their position in the image
     std::vector<cv::Vec4i> sortedLines = sortLinesVertices(lines);
     
+
+    /*
     // Filter the lines based on the angle
     std::vector<cv::Vec4i> filtered_lines;
     std::vector<double> m;
     for (const auto& line : sortedLines) {
-        double angle = atan2(line[3] - line[1], line[2] - line[0]) * 180 / CV_PI;
+        double angle = calculateAngle(line);
         
         m.push_back((double)(line[3] - line[1]) / (double)(line[2] - line[0]));
     }
@@ -556,17 +672,19 @@ void ParkingDetection::detect(cv::Mat &frame) {
 
     for(int i = 0; i < m.size(); i++){
         if(m[i] <= -m_threshold || (m[i] >= 0 && m[i] <= 0.4)){
-            filtered_lines.push_back(lines[i]);
+            filtered_lines.push_back(sortedLines[i]);
         }
     }
+*/
 
+
+    // Angle "K-means" clustering
+    std::vector<cv::Vec4i> filtered_lines = filterLinesByKMeans(sortedLines, 4, 15);
 
 
     for (const auto& line : lines)
         cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
 
-    std::cout << "Number of lines: " << lines.size() << std::endl;
-    std::cout << "Number of filtered lines: " << filtered_lines.size() << std::endl;
 
     for (const auto& line : filtered_lines)
         cv::line(filtered_line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
@@ -575,21 +693,109 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::imshow("Filtered lines", filtered_line_image);
 
    
+    // Line Segment Detector
+    cv::Ptr<cv::LineSegmentDetector> lsd = cv::createLineSegmentDetector(cv::LSD_REFINE_STD, 
+    0.7, // scale 
+    0.4, // sigma_scale 
+    5.0, // quant
+    20, // ang_th
+    0.4, // log_eps
+    0.8, // density_th
+    1024 // n_bins
+    );
+
+   
+    std::vector<cv::Vec4i> lsd_lines;
+    lsd->detect(frame_gray, lsd_lines);
+
+    cv::Mat line_image_lsd = cv::Mat::zeros(frame.size(), CV_8UC1);
+    for (int i = 0; i < lsd_lines.size(); i++) {
+        cv::Vec4i line = lsd_lines[i];
+        cv::line(line_image_lsd, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(255), 1, cv::LINE_AA);
+    }
+    cv::imshow("LSD", line_image_lsd);
 
 
+    cv::Mat filtered_line_image_lsd = frame.clone();
+    // Sort the line's vertices based on their position in the image
+    std::vector<cv::Vec4i> sortedLines_lsd = sortLinesVertices(lsd_lines);
+    
+    // Filter the lines based on the angle
+    std::vector<cv::Vec4i> filtered_lines_lsd = filterLinesByKMeans(sortedLines_lsd, 4, 15);
+  
+  
+  
+    /*std::vector<cv::Vec4i> filtered_lines_lsd;
+    std::vector<double> m;
+    double m_threshold = 1;
+    for (const auto& line : sortedLines_lsd) {
+        double angle = calculateAngle(line);
+        
+        m.push_back((double)(line[3] - line[1]) / (double)(line[2] - line[0]));
+    }
+
+
+    for(int i = 0; i < m.size(); i++){
+        if(m[i] <= -m_threshold || (m[i] >= 0 && m[i] <= 0.4)){
+            filtered_lines_lsd.push_back(sortedLines_lsd[i]);
+        }
+    }
+*/
+
+    for (const auto& line : filtered_lines_lsd)
+        cv::line(filtered_line_image_lsd, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
+
+
+
+    
+
+    
+
+    cv::imshow("Filtered lines LSD", filtered_line_image_lsd);
+
+
+    // Unify the lines of filtered_lines and filtered_lines_lsd
+    std::vector<cv::Vec4i> unifiedLines;
+    unifiedLines.insert(unifiedLines.end(), filtered_lines.begin(), filtered_lines.end());
+    unifiedLines.insert(unifiedLines.end(), filtered_lines_lsd.begin(), filtered_lines_lsd.end());
+
+    
+    // Delete short lines
+    double minLength = 17;
+    unifiedLines = deleteShortLines(unifiedLines, minLength);
+
+    // Angle "K-means" clustering
+    unifiedLines = filterLinesByKMeans(unifiedLines, 4, 15.0);
+    
+
+    // Draw the unified lines
+    cv::Mat unifiedImg = frame.clone();
+
+    for (const auto& line : unifiedLines) {
+        cv::line(unifiedImg, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
+    }
+
+    
+    imshow("Unified Lines  ", unifiedImg);
+
+    
+    
     // Unify the similar lines
     cv::Mat img = frame.clone();
-    double distanceThreshold = 0.5; // Distance threshold to consider lines close
-    double angleThreshold = 5.0;    // Angle threshold to consider lines similar (in degrees)
+    double distanceThreshold = 20; // Distance threshold to consider lines close
+    double angleThreshold = 15.0;    // Angle threshold to consider lines similar (in degrees)
 
-    std::vector<cv::Vec4i> unifiedLines = unifySimilarLines(filtered_lines, distanceThreshold, angleThreshold);
+    unifiedLines = unifySimilarLines(unifiedLines, distanceThreshold, angleThreshold);
 
     // Draw the unified lines
     for (const auto& line : unifiedLines) {
         cv::line(img, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
     }
 
+
     imshow("Unified Lines", img);
+
+
     
     // Filter the lines based on the distance between them
     
