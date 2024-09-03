@@ -83,6 +83,7 @@ int main(int argc, char** argv) {
     }
 
     // Real bounding boxes paths
+    /**/
     std::vector<std::vector<string>> bboxesPaths;
     for(int i = 0; i <= 5; i++) {
         path = "dataset/sequence" + std::to_string(i) + "/bounding_boxes";
@@ -102,7 +103,7 @@ int main(int argc, char** argv) {
 
 
 
-    
+    /*
     // PARKING DETECTION & CLASSIFICATION REAL
     std::vector<BBox> real_bboxes;
     for(int i = 0; i < parkingImages[0].size(); i++) {
@@ -122,7 +123,7 @@ int main(int argc, char** argv) {
         }
         imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes);
-        */
+        
          
 
        // PARKING DETECTION
@@ -136,9 +137,86 @@ int main(int argc, char** argv) {
         waitKey(0);
         cv::destroyAllWindows();
     }
-    
+    */
     
     // CAR SEGMENTATION
+
+    // Extracting HOG features for SVM
+    // Decomment only if you want to retrain the SVM, heavy operation
+    // Took only 100 images for each class
+    std::vector<int> labels;
+    std::vector<cv::Mat> car_images;
+    std::vector<cv::Mat> non_car_images;
+    std::vector<std::vector<float>> car_features;
+    std::vector<std::vector<float>> non_car_features;
+    int max_samples = 100;
+    path = "dataset/cars";
+    if (fs::exists(path) && fs::is_directory(path)) {
+        int count = 0;
+        for (const auto& entry : fs::directory_iterator(path)) {
+            if (count >= max_samples) {
+                break;
+            }
+            cv::Mat frame = cv::imread(entry.path().string());
+            //std::cout << "Car image: " << entry.path().string() << std::endl;
+            if(!frame.empty()) {
+                cv::resize(frame, frame, cv::Size(64, 128));
+                car_images.push_back(frame);
+                count++;
+            }
+        }
+    } else {
+        std::cerr << "Directory does not exist or is not a directory." << std::endl;
+    }
+
+    path = "dataset/non-cars";
+     if (fs::exists(path) && fs::is_directory(path)) {
+        int count = 0;
+        for (const auto& entry : fs::directory_iterator(path)) {
+            if (count >= max_samples) {
+                break;
+            }
+            cv::Mat frame = cv::imread(entry.path().string());
+            //std::cout << "Non-car image: " << entry.path().string() << std::endl;
+            if(!frame.empty()) {
+                cv::resize(frame, frame, cv::Size(64, 128));
+                non_car_images.push_back(frame);
+                count++;
+            }
+        }
+    } else {
+        std::cerr << "Directory does not exist or is not a directory." << std::endl;
+    }
+    CarSegmentation cs;
+    /*
+    cv::HOGDescriptor hog(cv::Size(64, 128), cv::Size(16, 16), cv::Size(8, 8), cv::Size(8, 8), 9);
+    std::cout << "(Main) Extracting HOG features for cars..." << std::endl;
+    for(cv::Mat& car_image : car_images) {
+        std::vector<float> descriptors;
+        cs.computeHOG(car_image, hog, descriptors);
+        car_features.push_back(descriptors);
+    }
+    for(cv::Mat& non_car_image : non_car_images) {
+        std::vector<float> descriptors;
+        cs.computeHOG(non_car_image, hog, descriptors);
+        non_car_features.push_back(descriptors);
+    }
+    std::cout << "(Main) Training SVM..." << std::endl;
+    cv::Mat trainingData;
+    //std::vector<int> labels;
+    for(const auto& car_feature : car_features) {
+        trainingData.push_back(cv::Mat(car_feature).reshape(1, 1));
+        labels.push_back(1);
+    }
+    for(const auto& non_car_feature : non_car_features) {
+        trainingData.push_back(cv::Mat(non_car_feature).reshape(1, 1));
+        labels.push_back(0);
+    }
+    trainingData.convertTo(trainingData, CV_32F);
+    cv::Mat labelsMat(labels, true);
+    cs.trainSVM(trainingData, labelsMat);
+    */
+
     
     // Array of vector, in position 0 there are the masks related of sequence 1
     // p_i = masks_i-1
@@ -158,8 +236,6 @@ int main(int argc, char** argv) {
                 std::cerr << "Invalid mask" << std::endl;
                 return -1;
             }
-
-            CarSegmentation cs;
             cv::Mat mask = cs.detectCars(parking, parkingImages[0]);
             //cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
             //real_masks[i - 1].push_back(true_mask);

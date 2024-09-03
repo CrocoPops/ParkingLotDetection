@@ -64,26 +64,216 @@ cv::Mat CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     return coloredMask;
 }
 
+double computeSimilarity(const cv::Mat& frame, const cv::Mat& background) {
+    cv::Mat diff;
+    cv::absdiff(frame, background, diff);
+    cv::Scalar sum_diff = cv::sum(diff);
+    return sum_diff[0] + sum_diff[1] + sum_diff[2];
+}
+
+cv::Mat selectClosestBackground(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+    double min_diff = std::numeric_limits<double>::max();
+    cv::Mat best_background;
+
+    for(const auto& empty_parking : empty_parkings) {
+        double diff = computeSimilarity(frame, empty_parking);
+        if(diff < min_diff) {
+            min_diff = diff;
+            best_background = empty_parking;
+        }
+    }
+
+    return best_background;
+}
+
+cv::Mat refineForegroundMask(const cv::Mat &fgMask) {
+    cv::Mat refinedMask = fgMask.clone();
+
+    // Find contours
+    std::vector<std::vector<cv::Point>> contours;
+    std::vector<cv::Vec4i> hierarchy;
+    cv::findContours(refinedMask, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    // Create a mask to hold the final result
+    cv::Mat finalMask = cv::Mat::zeros(refinedMask.size(), CV_8UC1);
+
+    // Filter contours based on area
+    for (const auto& contour : contours) {
+        double area = cv::contourArea(contour);
+        if (area > 500) { // Adjust these thresholds based on your requirements
+            cv::drawContours(finalMask, std::vector<std::vector<cv::Point>>{contour}, -1, cv::Scalar(255), cv::FILLED);
+        }
+    }
+
+    // Additional morphological operations if needed
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    cv::morphologyEx(finalMask, finalMask, cv::MORPH_CLOSE, kernel);
+    cv::morphologyEx(finalMask, finalMask, cv::MORPH_OPEN, kernel);
+
+    return finalMask;
+}
 
 cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+    cv::Mat best_background = selectClosestBackground(frame, empty_parkings);
+
+    cv::Mat frame_gray, best_background_gray;
+    cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(best_background, best_background_gray, cv::COLOR_BGR2GRAY);
+    cv::Mat fgMask;
+    cv::absdiff(frame_gray, best_background_gray, fgMask);
+    cv::threshold(fgMask, fgMask, 50, 255, cv::THRESH_BINARY);
+    
+    cv::Mat kernel3x3 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
+    cv::Mat kernel5x5 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    cv::Mat kernel7x7 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7));
+    cv::Mat kernel15x15 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(15, 15));
+    cv::morphologyEx(fgMask, fgMask, cv::MORPH_CLOSE, kernel5x5);
+    cv::morphologyEx(fgMask, fgMask, cv::MORPH_OPEN, kernel3x3);
+    cv::dilate(fgMask, fgMask, kernel3x3);
+
+    // Green mask to filter out trees
+    cv::Mat green_mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+    cv::Mat empty_parking_hsv;
+    cv::cvtColor(empty_parkings[0], empty_parking_hsv, cv::COLOR_BGR2HSV);
+    std::vector<cv::Mat> empty_parking_hsv_channels;
+    cv::split(empty_parking_hsv, empty_parking_hsv_channels);
+
+    cv::threshold(empty_parking_hsv_channels[1], green_mask, 0, 255, cv::THRESH_BINARY_INV | cv::THRESH_OTSU);
+    cv::morphologyEx(green_mask, green_mask, cv::MORPH_CLOSE, kernel5x5);
+    cv::morphologyEx(green_mask, green_mask, cv::MORPH_OPEN, kernel7x7);
+    cv::erode(green_mask, green_mask, kernel15x15);
+    //cv::dilate(green_mask, green_mask, kernel15x15);
+
+    cv::bitwise_and(fgMask, green_mask, fgMask);
+
+    // Refine the foreground mask
+    cv::Mat refinedMask = refineForegroundMask(fgMask);
+
+    // Red cars: this system has some problems in detecting red cars
+    // Now we use another method to detect red cars
+    cv::Mat frame_hsv;
+    cv::cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
+    std::vector<cv::Mat> hsv_channels;
+    cv::split(frame_hsv, hsv_channels);
+
+    cv::Mat thresh;
+    cv::threshold(hsv_channels[1], thresh, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    cv::bitwise_and(thresh, green_mask, thresh);
+    thresh = refineForegroundMask(thresh);
+
+    cv::Mat mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+    for(int x = 0; x < hsv_channels[2].rows; x++) 
+        for(int y = 0; y < hsv_channels[2].cols; y++)
+            if(hsv_channels[2].at<uchar>(x, y) > 200 || hsv_channels[2].at<uchar>(x, y) < 45)
+                mask.at<uchar>(x, y) = 255;
+
+    cv::dilate(mask, mask, kernel7x7);
+    cv::Mat result;
+    cv::bitwise_or(refinedMask, thresh, result);
+    cv::bitwise_or(result, mask, result);
+    cv::bitwise_and(result, green_mask, result);
+
+    result = refineForegroundMask(result);
+
+    // Only for visualization purposes, not needed in the final implementation
+    cv::Mat red_mask = cv::Mat::zeros(frame.size(), CV_8UC3);
+    red_mask.setTo(cv::Scalar(0, 0, 255), result == 255);
+
+    cv::Mat output = frame.clone();
+    cv::addWeighted(output, 1, red_mask, 0.7, 0, output);
+
+    cv::imshow("Frame", frame);
+    cv::imshow("Result", result);
+    cv::imshow("Output", output);
+    cv::waitKey(0);
+    return result;
+}
+
+/*
+void CarSegmentation::computeHOG(cv::Mat &frame, std::vector<float> &descriptors) {
+    cv::HOGDescriptor hog(cv::Size(64, 128), cv::Size(16, 16), cv::Size(8, 8), cv::Size(8, 8), 9);
+    cv::resize(frame, frame, cv::Size(64, 128)); // Resize image to the fixed window size
+    hog.compute(frame, descriptors);
+}
+
+void CarSegmentation::trainSVM(const std::vector<std::vector<float>> &car_features, const std::vector<std::vector<float>> &non_car_features) {
+    std::cout << "Training SVM..." << std::endl;
+    std::vector<std::vector<float>> train_data;
+    std::vector<int> labels;
+
+    train_data.insert(train_data.end(), car_features.begin(), car_features.end());
+    labels.insert(labels.end(), car_features.size(), 1);
+
+    train_data.insert(train_data.end(), non_car_features.begin(), non_car_features.end());
+    labels.insert(labels.end(), non_car_features.size(), 0);
+
+    cv::Mat train_data_mat(train_data.size(), static_cast<int>(train_data[0].size()), CV_32FC1);
+    for(int i = 0; i < train_data.size(); i++)
+        for(int j = 0; j < train_data[i].size(); j++)
+            train_data_mat.at<float>(i, j) = train_data[i][j];
+
+    cv::Mat labels_mat(labels.size(), 1, CV_32SC1);
+    for(int i = 0; i < labels.size(); i++)
+        labels_mat.at<int>(i, 0) = labels[i];
+    
+    cv::Ptr<cv::ml::SVM> svm = cv::ml::SVM::create();
+    svm->setKernel(cv::ml::SVM::LINEAR);
+    svm->setType(cv::ml::SVM::C_SVC);
+    svm->setC(0.01);
+    svm->train(train_data_mat, cv::ml::ROW_SAMPLE, labels_mat);
+    std::cout << "SVM trained successfully." << std::endl;
+    svm->save("car_detector.xml");
+}
+
+cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+    std::cout << "Detecting cars..." << std::endl;
+    cv::Mat frame_copy = frame.clone();
+    cv::Ptr<cv::ml::SVM> svm = cv::ml::SVM::load("car_detector.xml");
+    cv::Size window_size(64, 128);
+
+    for(int y = 0; y <= frame.rows - window_size.height; y += 8) {
+        for(int x = 0; x <= frame.cols - window_size.width; x += 8) {
+            cv::Rect window(x, y, window_size.width, window_size.height);
+            cv::Mat window_frame = frame(window).clone();
+
+            std::vector<float> descriptors;
+            computeHOG(window_frame, descriptors);
+
+            cv::Mat descriptors_mat(1, static_cast<int>(descriptors.size()), CV_32FC1);
+            for(int i = 0; i < descriptors.size(); i++)
+                descriptors_mat.at<float>(0, i) = descriptors[i];
+
+            float response = svm->predict(descriptors_mat);
+            std::cout << "Response: " << response << std::endl;
+            if(response == 1) {
+                cv::rectangle(frame_copy, window, cv::Scalar(0, 0, 255), 2);
+            }
+        }
+    }
+    
+    cv::imshow("Frame", frame_copy);
+    cv::waitKey(0);
+    return cv::Mat();
+}*/
+
+
+/*
+cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
     cv::Mat blurred;
-    cv::pyrMeanShiftFiltering(frame, blurred, 20, 45, 2);
+    cv::pyrMeanShiftFiltering(frame, blurred, 20, 45, 1);
 
     cv::Mat frame_hsv;
     cv::cvtColor(blurred, frame_hsv, cv::COLOR_BGR2HSV);
     std::vector<cv::Mat> hsv_channels;
     cv::split(frame_hsv, hsv_channels);
 
-    cv::Mat v_channel = hsv_channels[2];
+    cv::Mat v_channel = hsv_channels[2].clone();
 
     cv::Mat mask = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for(int x = 0; x < v_channel.rows; x++) {
-        for(int y = 0; y < v_channel.cols; y++) {
-            if(v_channel.at<uchar>(x, y) > 200 || v_channel.at<uchar>(x, y) < 45) {
+    for(int x = 0; x < v_channel.rows; x++) 
+        for(int y = 0; y < v_channel.cols; y++)
+            if(v_channel.at<uchar>(x, y) > 200 || v_channel.at<uchar>(x, y) < 45)
                 mask.at<uchar>(x, y) = 255;
-            }
-        }
-    }
 
     cv::Mat green_mask = cv::Mat::zeros(frame.size(), CV_8UC1);
     cv::Mat parking_hsv;
@@ -91,19 +281,20 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
     std::vector<cv::Mat> parking_hsv_channels;
     cv::split(parking_hsv, parking_hsv_channels);
     cv::threshold(parking_hsv_channels[1], green_mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    cv::Mat element3x3 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
     cv::Mat element5x5 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
     cv::Mat element7x7 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7));
     cv::Mat element9x9 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(9, 9));
     cv::Mat element15x15 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(15, 15));
     cv::morphologyEx(green_mask, green_mask, cv::MORPH_OPEN, element5x5);
-    cv::dilate(green_mask, green_mask, element5x5);
+    cv::dilate(green_mask, green_mask, element15x15);
     cv::morphologyEx(green_mask, green_mask, cv::MORPH_CLOSE, element5x5);
     cv::bitwise_not(green_mask, green_mask);
 
     cv::bitwise_and(mask, green_mask, mask);
 
     //cv::morphologyEx(mask, mask, cv::MORPH_OPEN, element5x5);
-    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element15x15);
+    //cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, element15x15);
     //cv::morphologyEx(mask, mask, cv::MORPH_OPEN, element9x9);
 
     // Delete small connected components
@@ -111,7 +302,7 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
     cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
     for(int i = 0; i < contours.size(); i++) {
-        if(cv::contourArea(contours[i]) < 400) {
+        if(cv::contourArea(contours[i]) < 200) {
             cv::drawContours(mask, contours, i, cv::Scalar(0), cv::FILLED);
         }
     }
@@ -121,18 +312,143 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
     blue_mask.setTo(cv::Scalar(255, 0, 0), mask == 255);
     cv::addWeighted(frame, 1, blue_mask, 0.7, 0, result);
 
+    cv::Mat h_channel = hsv_channels[0].clone();
+    cv::Mat s_channel = hsv_channels[1].clone();
+    cv::threshold(h_channel, h_channel, 100, 120, cv::THRESH_BINARY);
+    //cv::threshold(s_channel, s_channel, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    cv::threshold(s_channel, s_channel, 100, 255, cv::THRESH_BINARY);
+
+    //h_channel.setTo(255, h_channel > 0);
+    /*
+    cv::Mat temp;
+    //cv::bitwise_or(mask, s_channel, temp);
+    //cv::bitwise_or(temp, h_channel, temp);
+    //cv::bitwise_and(temp, green_mask, temp);
+
+    cv::morphologyEx(temp, temp, cv::MORPH_CLOSE, element7x7);
+
+    std::vector<std::vector<cv::Point>> contours2;
+    cv::findContours(temp, contours2, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    for(int i = 0; i < contours2.size(); i++) {
+        if(cv::contourArea(contours2[i]) > 5000) {
+            cv::drawContours(temp, contours2, i, cv::Scalar(0), cv::FILLED);
+        }
+    }
+    
+    //cv::morphologyEx(temp, temp, cv::MORPH_OPEN, element3x3);
+    
+    cv::Mat frame_lab;
+    cv::cvtColor(frame, frame_lab, cv::COLOR_BGR2Lab);
+    std::vector<cv::Mat> lab_channels;
+    cv::split(frame_lab, lab_channels);
+
+    cv::Mat a_channel = lab_channels[1];
+
+    // Red cars
+    for(int x = 0; x < a_channel.rows; x++)
+        for(int y = 0; y < a_channel.cols; y++)
+            if(a_channel.at<uchar>(x, y) > 150)
+                mask.at<uchar>(x, y) = 255;
+
+   
+
+
+
     cv::imshow("Frame", frame);
-    cv::imshow("Blurred", blurred);
-    cv::imshow("HSV", frame_hsv);
+    //cv::imshow("Blurred", blurred);
+    //cv::imshow("HSV", frame_hsv);
     cv::imshow("Hue", hsv_channels[0]);
     cv::imshow("Saturation", hsv_channels[1]);
     cv::imshow("Value", hsv_channels[2]);
     cv::imshow("Mask", mask);
-    cv::imshow("Green Mask", green_mask);
-    cv::imshow("Result", result);
+    cv::imshow("L", lab_channels[0]);
+    cv::imshow("a", lab_channels[1]);
+    cv::imshow("b", lab_channels[2]);
+    //cv::imshow("Y Channel", ycbcr_channels[0]);
+    //cv::imshow("Cr Channel", ycbcr_channels[1]);
+    //cv::imshow("Cb Channel", ycbcr_channels[2]);
+    //cv::imshow("Green Mask", green_mask);
+    //cv::imshow("Result", result);
+    //cv::imshow("H Channel", h_channel);
+    //cv::imshow("S Channel", s_channel);
+    //cv::imshow("Temp", temp);
+    //cv::imshow("a", a_channel);
     cv::waitKey(0);
     return mask;  // Return the result mask
 }
+*/
+
+/*
+cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+    cv::Mat frame_gray, blurred;
+    cv::pyrMeanShiftFiltering(frame, blurred, 20, 45, 2);
+    cv::dilate(blurred, blurred, cv::Mat::ones(3, 3, CV_8U));
+    cv::cvtColor(blurred, frame_gray, cv::COLOR_BGR2GRAY);
+
+    cv::Mat grad_x, grad_y;
+    cv::Sobel(frame_gray, grad_x, CV_16S, 1, 0, 3);
+    cv::Sobel(frame_gray, grad_y, CV_16S, 0, 1, 3);
+
+    cv::Mat abs_grad_x, abs_grad_y;
+    cv::convertScaleAbs(grad_x, abs_grad_x);
+    cv::convertScaleAbs(grad_y, abs_grad_y);
+
+    cv::Mat grad;
+    cv::addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
+
+    cv::Mat binary;
+    cv::threshold(grad, binary, 50, 255, cv::THRESH_BINARY);
+
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+    //cv::morphologyEx(binary, binary, cv::MORPH_OPEN, kernel, cv::Point(-1, -1), 2);
+
+    cv::Mat dist;
+    cv::distanceTransform(binary, dist, cv::DIST_L2, 3);
+    cv::normalize(dist, dist, 0, 1, cv::NORM_MINMAX);
+
+    cv::threshold(dist, dist, 0.4, 1, cv::THRESH_BINARY);
+
+    cv::Mat sure_fg;
+    dist.convertTo(sure_fg, CV_8U);
+
+    cv::Mat sure_bg;
+    cv::dilate(binary, sure_bg, kernel, cv::Point(-1, -1), 3);
+
+    cv::Mat unknown;
+    cv::subtract(sure_bg, sure_fg, unknown);
+
+    cv::Mat markers;
+    cv::connectedComponents(sure_fg, markers);
+
+    markers = markers + 1;
+
+    markers.setTo(0, unknown == 255);
+
+    cv::watershed(frame, markers);
+
+    cv::Mat result = cv::Mat::zeros(markers.size(), CV_8UC3);
+    for(int x = 0; x < markers.rows; x++) {
+        for(int y = 0; y < markers.cols; y++) {
+            if(markers.at<int>(x, y) == -1) {
+                result.at<cv::Vec3b>(x, y) = cv::Vec3b(0, 0, 255);
+            }
+        }
+    }
+
+    cv::imshow("Frame", frame);
+    cv::imshow("Blurred", blurred);
+    cv::imshow("Gradient", grad);
+    cv::imshow("Binary", binary);
+    cv::imshow("Distance", dist);
+    cv::imshow("Sure FG", sure_fg);
+    cv::imshow("Sure BG", sure_bg);
+    cv::imshow("Unknown", unknown);
+    cv::imshow("Watershed", result);
+    cv::waitKey(0);
+
+    return cv::Mat();
+}*/
 
 
 /*
