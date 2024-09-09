@@ -459,6 +459,18 @@ float distanceBetweenSegments(const cv::Vec4f &seg1, const cv::Vec4f &seg2)
     return std::min({d1, d2, d3, d4});
 }
 
+float distanceBetweenSegments2(const cv::Vec4f &seg1, const cv::Vec4f &seg2)
+{
+    cv::Point2f mid1((seg1[0] + seg1[2]) / 2, (seg1[1] + seg1[3]) / 2); // Midpoint of seg1
+    cv::Point2f mid2((seg2[0] + seg2[2]) / 2, (seg2[1] + seg2[3]) / 2); // Midpoint of seg2
+
+    // Compute the Euclidean distance between the two midpoints
+    float distance = cv::norm(mid1 - mid2);
+
+    return distance;
+}
+
+
 double calculateLineAngle(const cv::Vec4f &line)
 {
     return std::atan2(line[3] - line[1], line[2] - line[0]) * 180.0 / CV_PI;
@@ -933,6 +945,7 @@ cv::Vec4f mergeLineCluster(const std::vector<cv::Vec4f> &cluster)
 }
 
 
+
 std::vector<cv::Vec4f> divideLongLines(const std::vector<cv::Vec4f> &lines, double max_length, double offset)
 {
      std::vector<cv::Vec4f> dividedLines;
@@ -969,6 +982,185 @@ std::vector<cv::Vec4f> divideLongLines(const std::vector<cv::Vec4f> &lines, doub
     return dividedLines;
 }
 
+
+bool compareLines(const cv::Vec4f& line1, const cv::Vec4f& line2) {
+    // Extract starting points
+    cv::Point2f start1(line1[0], line1[1]);
+    cv::Point2f start2(line2[0], line2[1]);
+
+    // Sort primarily by y-coordinate, secondarily by x-coordinate
+    if (start1.y < start2.y) return true;
+    if (start1.y > start2.y) return false;
+    return start1.x < start2.x;
+}
+
+std::vector<cv::Vec4f> sortLines(const std::vector<cv::Vec4f>& lines) {
+    std::vector<cv::Vec4f> sorted_lines = lines;
+    std::sort(sorted_lines.begin(), sorted_lines.end(), compareLines);
+    return sorted_lines;
+}
+
+
+
+cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
+    cv::Mat bounding_box = frame.clone();
+    std::set<std::pair<int, int>> used_pairs;
+    std::set<std::pair<int, int>> counter_lines;
+
+    for (int i = 0; i < lines.size(); i++) {
+        std::vector<std::pair<int, double>> candidates;  
+
+        // Find valid candidate lines
+        for (int j = 0; j < lines.size(); j++) {
+            if (i == j) continue;
+
+            if (used_pairs.count(std::make_pair(i, j)) || used_pairs.count(std::make_pair(j, i))) {
+                continue;
+            }
+
+            double distance = distanceBetweenSegments2(lines[i], lines[j]);
+            double angle1 = calculateLineAngle(lines[i]);
+            double angle2 = calculateLineAngle(lines[j]);
+
+            //int xDiff = std::abs(lines[i][0] - lines[j][0]);
+
+            if (distance > minDistanceThreshold && distance < maxDistanceThreshold && std::abs(angle1 - angle2) < maxAngleThreshold) {
+                candidates.push_back(std::make_pair(j, distance));
+            }
+        }
+
+        bool found_valid_rectangle = false;
+        int nearest_line_idx = -1;
+        double min_distance = DBL_MAX;
+
+        // Find the nearest candidate based on distance
+        for (const auto& candidate : candidates) {
+            if (candidate.second < min_distance && counter_lines.count(candidate) < 3) {
+                nearest_line_idx = candidate.first;
+                min_distance = candidate.second;
+                counter_lines.insert(std::make_pair(i, nearest_line_idx));
+            }
+        }
+
+        // If a nearest line is found, try to create a rectangle
+        if (nearest_line_idx != -1) {
+            cv::Vec4f line1 = lines[i];
+            cv::Vec4f line2 = lines[nearest_line_idx];
+
+            // Store the pair of lines as used
+            used_pairs.insert(std::make_pair(i, nearest_line_idx));
+
+            // Calculate the midpoints of each line
+            cv::Point2f mid_point1((line1[0] + line1[2]) / 2, (line1[1] + line1[3]) / 2);
+            cv::Point2f mid_point2((line2[0] + line2[2]) / 2, (line2[1] + line2[3]) / 2);
+
+            // Find the midpoint of the rectangle
+            cv::Point2f rect_center = (mid_point1 + mid_point2) / 2;
+
+            // Calculate the angle between the lines (average angle, should be almost parallel)
+            double angle = (calculateLineAngle(line1) + calculateLineAngle(line2)) / 2;
+
+            // Calculate the length of the rectangle's width and height
+            double width = cv::norm(cv::Point2f(line1[0], line1[1]) - cv::Point2f(line1[2], line1[3]));
+            double height = cv::norm(mid_point1 - mid_point2);
+
+            // Create the rectangle using the center, size, and angle
+            cv::RotatedRect rect(rect_center, cv::Size2f(width, height), angle);
+
+            // Calculate the area of the rectangle
+            double area = rect.size.area();
+
+            // Check if the area is within the thresholds
+            if (area < minAreaThreshold || area > maxAreaThreshold) {
+                continue; // Skip this candidate and try the next one
+            }
+
+            
+
+
+            // Get the rectangle vertices
+            cv::Point2f vertices[4];
+            rect.points(vertices);
+
+            // Draw the rectangle using the vertices
+            cv::Scalar color(rand() % 256, rand() % 256, rand() % 256);
+            for (int k = 0; k < 4; ++k) {
+                cv::line(bounding_box, vertices[k], vertices[(k + 1) % 4], color, 2);
+            }
+
+            found_valid_rectangle = true;
+        }
+
+        // If no valid rectangle was found for this line, continue to the next one
+        if (!found_valid_rectangle) {
+            continue;
+        }
+    }
+
+    return bounding_box;
+}
+
+/*
+cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold) {
+    cv::Mat bounding_box = frame.clone();
+
+    // Set to store line index pairs that have already been used to draw bounding boxes
+    std::set<std::pair<int, int>> used_pairs;
+
+    for (int i = 0; i < lines.size(); i++) {
+        std::vector<std::pair<int, double>> candidates; // Store candidates with their distances
+
+        for (int j = 0; j < lines.size(); j++) {
+            if (i == j) continue; // Skip the same line
+
+            // Ensure we don't process the same pair of lines again
+            if (used_pairs.count(std::make_pair(i, j)) || used_pairs.count(std::make_pair(j, i))) {
+                continue;
+            }
+
+            double distance = distanceBetweenSegments2(lines[i], lines[j]);
+
+            // The lines have to be parallel
+            double angle1 = calculateLineAngle(lines[i]);
+            double angle2 = calculateLineAngle(lines[j]);
+
+            // Store the candidate if it meets the distance and angle thresholds
+            if (distance > minDistanceThreshold && distance < maxDistanceThreshold && std::abs(angle1 - angle2) < maxAngleThreshold) {
+                candidates.push_back(std::make_pair(j, distance)); 
+            }
+        }
+
+        // Now find the nearest candidate from the list
+        if (!candidates.empty()) {
+            int nearest_line_idx = -1;
+            double min_distance = DBL_MAX;
+
+            // Loop through the candidates to find the nearest line
+            for (const auto& candidate : candidates) {
+                if (candidate.second < min_distance) {
+                    min_distance = candidate.second 
+                // Calculate the four corners of the rectangle
+                cv::Point top_left(line1[0], line1[1]);
+                cv::Point top_right(line1[2], line1[3]);
+                cv::Point bottom_left(line2[0], line2[1]);
+                cv::Point bottom_right(line2[2], line2[3]);
+
+                cv::Scalar color(rand() % 256, rand() % 256, rand() % 256);
+
+                // Draw the rectangle using the corners
+                cv::line(bounding_box, top_left, top_right, color, 2);
+                cv::line(bounding_box, top_right, bottom_right, color, 2);
+                cv::line(bounding_box, bottom_right, bottom_left, color, 2);
+                cv::line(bounding_box, bottom_left, top_left, color, 2);
+            }
+        }
+    }
+
+    return bounding_box;
+}
+
+
+*/
 void ParkingDetection::detect(cv::Mat &frame) {
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
@@ -1066,7 +1258,20 @@ void ParkingDetection::detect(cv::Mat &frame) {
     lines = divideLongLines(kmeans_lines, 200, 30);
     cv::Mat d = frame.clone();
     lsd->drawSegments(d, lines);
-   
+    
+
+    // Sort the lines based in their position in the space 
+    lines = sortLines(lines);
+    
+    int minDistanceThreshold = 20;
+    int maxDistanceThreshold = 150;
+    int maxAngleThreshold = 30;
+    double minAreaThreshold = 100;
+    double maxAreaThreshold = 20000;
+    int xThreshold = 100;
+    cv::Mat bounding_box = drawBoundingBoxes(frame, lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
+
+
     imshow("Lines", frame);
     imshow("Cluster", c);
     imshow("Merged", m);
@@ -1074,6 +1279,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
     imshow("Long lines", l);
     imshow("Kmeans", k);
     imshow("Divided", d);
+    imshow("Bounding box", bounding_box);
 
     cv::waitKey(0);
 }
