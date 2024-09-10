@@ -1002,6 +1002,59 @@ std::vector<cv::Vec4f> sortLines(const std::vector<cv::Vec4f>& lines) {
 
 
 
+/*
+cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold) {
+    std::vector<cv::Vec4f> new_lines;
+    std::vector<double> distances;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        double minD = maxDistanceThreshold;
+        cv::Vec4f minDLine;
+
+        for (size_t j = 0; j < lines.size(); j++)
+        {
+            if (i == j)
+                continue;
+
+            double d = distanceBetweenSegments2(lines[i], lines[j]);
+            double a = std::fabs(calculateLineAngle(lines[i]) - calculateLineAngle(lines[j]));
+            if (d < minD && a < maxAngleThreshold)
+            {
+                minD = d;
+                minDLine = lines[j];
+            }
+        }
+
+        if (distanceBetweenSegments(lines[i], minDLine) < maxDistanceThreshold)
+        {
+            new_lines.push_back(mergeLineSegments(lines[i], minDLine));
+            distances.push_back(distanceBetweenSegments(lines[i], minDLine));
+        }
+    }
+
+    cv::Mat n = frame.clone();
+    for (size_t i = 0; i < new_lines.size(); i++)
+    {
+        cv::Vec4f line = new_lines[i];
+        // cv::line(n, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(255, 0, 0), 2);
+        cv::RotatedRect rotatedRect(cv::Point((line[0] + line[2]) / 2, (line[1] + line[3]) / 2), cv::Size(calculateLength(line), distances[i]), calculateLineAngle(line));
+        cv::Point2f vertices[4];
+        rotatedRect.points(vertices);
+
+        // Draw the rotated rectangle using polylines
+        for (int i = 0; i < 4; i++)
+        {
+            // Draw lines between consecutive vertices
+            cv::line(n, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 255), 2);
+        }
+        // cv::circle(n, cv::Point((line[0] + line[2]) / 2, (line[1] + line[3]) / 2), 10, cv::Scalar(0, 255, 0), 2);
+    }
+
+    return n;
+}
+
+*/
+
 cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
     cv::Mat bounding_box = frame.clone();
     std::set<std::pair<int, int>> used_pairs;
@@ -1046,10 +1099,21 @@ cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, i
         if (nearest_line_idx != -1) {
             cv::Vec4f line1 = lines[i];
             cv::Vec4f line2 = lines[nearest_line_idx];
-
+            
             // Store the pair of lines as used
             used_pairs.insert(std::make_pair(i, nearest_line_idx));
+            used_pairs.insert(std::make_pair(nearest_line_idx, i));
 
+
+            cv::Vec4f line = mergeLineSegments(line1, line2);
+
+            cv::RotatedRect rotatedRect(cv::Point((line[0] + line[2]) / 2, (line[1] + line[3]) / 2), cv::Size(calculateLength(line), distanceBetweenSegments(line1, line2)), calculateLineAngle(line));
+
+            cv::Point2f vertices[4];
+            rotatedRect.points(vertices);
+
+            
+            /*
             // Calculate the midpoints of each line
             cv::Point2f mid_point1((line1[0] + line1[2]) / 2, (line1[1] + line1[3]) / 2);
             cv::Point2f mid_point2((line2[0] + line2[2]) / 2, (line2[1] + line2[3]) / 2);
@@ -1066,18 +1130,22 @@ cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, i
 
             // Create the rectangle using the center, size, and angle
             cv::RotatedRect rect(rect_center, cv::Size2f(width, height), angle);
-
+            */
             // Calculate the area of the rectangle
-            double area = rect.size.area();
+            double area = rotatedRect.size.area();
 
             // Check if the area is within the thresholds
             if (area < minAreaThreshold || area > maxAreaThreshold) {
                 continue; // Skip this candidate and try the next one
             }
 
-            
+            // Draw the rotated rectangle using polylines
+            for (int i = 0; i < 4; i++) {
+                // Draw lines between consecutive vertices
+                cv::line(bounding_box, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 255), 2);
+            }
 
-
+            /*
             // Get the rectangle vertices
             cv::Point2f vertices[4];
             rect.points(vertices);
@@ -1087,7 +1155,7 @@ cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, i
             for (int k = 0; k < 4; ++k) {
                 cv::line(bounding_box, vertices[k], vertices[(k + 1) % 4], color, 2);
             }
-
+            */
             found_valid_rectangle = true;
         }
 
@@ -1231,9 +1299,9 @@ void ParkingDetection::detect(cv::Mat &frame) {
     cv::Mat img = frame.clone();
     double distanceThreshold = 15; // Distance threshold to consider lines close
     double angleThreshold = 30;    // Angle threshold to consider lines similar (in degrees)
-    double lenghtThreshold = 20; // Length threshold to consider lines similar
+    double lengthThreshold = 20; // Length threshold to consider lines similar
 
-    std::vector<cv::Vec4f> unifiedLines = unifySimilarLines(longLines, distanceThreshold, angleThreshold, lenghtThreshold);
+    std::vector<cv::Vec4f> unifiedLines = unifySimilarLines(longLines, distanceThreshold, angleThreshold, lengthThreshold);
 
     
 
@@ -1265,10 +1333,10 @@ void ParkingDetection::detect(cv::Mat &frame) {
     
     int minDistanceThreshold = 20;
     int maxDistanceThreshold = 150;
-    int maxAngleThreshold = 30;
+    int maxAngleThreshold = 20;
     double minAreaThreshold = 100;
     double maxAreaThreshold = 20000;
-    int xThreshold = 100;
+    int xThreshold = 20;
     cv::Mat bounding_box = drawBoundingBoxes(frame, lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
 
 
