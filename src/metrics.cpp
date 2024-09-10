@@ -63,7 +63,7 @@ float computeAveragePrecision(const std::vector<float>& recalls, const std::vect
 }
 
 
-float computeMAP(const std::vector<BBox>& detections, const std::vector<BBox>& ground_truths, float iouThreshold) {
+float computeMAP(const std::vector<BBox>& detections, const std::vector<BBox>& ground_truths, float iouThreshold = 0.5) {
     int num_parkings = ground_truths.size();
 
     // I need a std::vector since it is cumulative

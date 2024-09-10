@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
     }
 
     // Real bounding boxes paths
-    /**/
+    
     std::vector<std::vector<string>> bboxesPaths;
     for(int i = 0; i <= 5; i++) {
         path = "dataset/sequence" + std::to_string(i) + "/bounding_boxes";
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 
     
     // PARKING DETECTION & CLASSIFICATION REAL
-    /*
+    
     std::vector<BBox> real_bboxes;
     for(int i = 0; i < parkingImages[0].size(); i++) {
         cv::Mat parking = parkingImages[0][i];
@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
         imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes);
         
-         
+         */
 
        // PARKING DETECTION
         ParkingDetection pd;
@@ -152,7 +152,7 @@ int main(int argc, char** argv) {
 
         waitKey(0);
         cv::destroyAllWindows();
-    }*/
+    }
     
     
     // CAR SEGMENTATION
