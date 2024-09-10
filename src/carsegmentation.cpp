@@ -201,6 +201,7 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
     cv::Mat output = frame.clone();
     cv::Mat colored_mask = cv::Mat::zeros(frame.size(), CV_8UC3);
     colored_mask.setTo(cv::Scalar(0, 0, 255), final_mask == 255);
+    cv::addWeighted(output, 1, colored_mask, 0.7, 0, output);
 
     cv::imshow("Output", output);
     cv::waitKey(0);
