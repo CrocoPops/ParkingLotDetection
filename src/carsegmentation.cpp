@@ -1,6 +1,8 @@
 #include "carsegmentation.h"
 
-CarSegmentation::CarSegmentation() {}
+CarSegmentation::CarSegmentation() {
+    backSub = cv::createBackgroundSubtractorMOG2();
+}
 
 CarSegmentation::~CarSegmentation() {}
 
@@ -64,6 +66,15 @@ cv::Mat CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     return coloredMask;
 }
 
+void CarSegmentation::trainBackgroundSubtractor(std::vector<cv::Mat> empty_parkings) {
+    std::cout << "Training background subtractor..." << std::endl;
+    for(const auto& empty_parking : empty_parkings) {
+        cv::Mat tmp;
+        backSub->apply(empty_parking, tmp, 1.0);
+    }
+    std::cout << "Background subtractor trained successfully." << std::endl;
+}
+
 double computeSimilarity(const cv::Mat& frame, const cv::Mat& background) {
     cv::Mat diff;
     cv::absdiff(frame, background, diff);
@@ -97,10 +108,13 @@ cv::Mat refineForegroundMask(const cv::Mat &fgMask) {
     // Create a mask to hold the final result
     cv::Mat finalMask = cv::Mat::zeros(refinedMask.size(), CV_8UC1);
 
-    // Filter contours based on area
+
+    // Filter contours based on area and by shape (aspect ratio)
     for (const auto& contour : contours) {
         double area = cv::contourArea(contour);
-        if (area > 500) { // Adjust these thresholds based on your requirements
+        cv::Rect bbox = cv::boundingRect(contour);
+        double aspectRatio = static_cast<double>(bbox.width) / bbox.height;
+        if (area > 600 && aspectRatio > 0.5 && aspectRatio < 4.0) {
             cv::drawContours(finalMask, std::vector<std::vector<cv::Point>>{contour}, -1, cv::Scalar(255), cv::FILLED);
         }
     }
@@ -114,11 +128,90 @@ cv::Mat refineForegroundMask(const cv::Mat &fgMask) {
 }
 
 cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+    std::cout << "Detecting cars..." << std::endl;
     cv::Mat best_background = selectClosestBackground(frame, empty_parkings);
 
     cv::Mat frame_gray, best_background_gray;
     cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
     cv::cvtColor(best_background, best_background_gray, cv::COLOR_BGR2GRAY);
+
+    cv::Mat fgMask, thresh;
+    cv::absdiff(frame_gray, best_background_gray, fgMask);
+    //cv::threshold(fgMask, thresh, 50, 255, cv::THRESH_BINARY);
+    cv::inRange(fgMask, 50, 255, thresh);
+
+    cv::Mat frame_hsv;
+    cv::cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
+    std::vector<cv::Mat> hsv_channels;
+    cv::split(frame_hsv, hsv_channels);
+
+    cv::Mat mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+    cv::threshold(hsv_channels[1], mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    cv::Mat kernel3x3 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
+    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel3x3);
+
+    // Keep only cars
+    mask = refineForegroundMask(mask);
+
+    cv::Mat background_hsv;
+    cv::cvtColor(best_background, background_hsv, cv::COLOR_BGR2HSV);
+    std::vector<cv::Mat> background_hsv_channels;
+    cv::split(background_hsv, background_hsv_channels);
+
+    cv::Mat green_mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+    cv::threshold(background_hsv_channels[1], green_mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    cv::Mat kernel5x5 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    cv::Mat kernel7x7 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7));
+    cv::Mat kernel9x9 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(9, 9));
+    cv::morphologyEx(green_mask, green_mask, cv::MORPH_CLOSE, kernel5x5);
+    cv::morphologyEx(green_mask, green_mask, cv::MORPH_OPEN, kernel7x7);
+    cv::dilate(green_mask, green_mask, kernel9x9);
+    
+    cv::bitwise_not(green_mask, green_mask);
+    //cv::bitwise_and(mask, green_mask, mask);
+    //cv::bitwise_or(mask, thresh, mask);
+
+    //mask = refineForegroundMask(mask);
+    //cv::dilate(thresh, thresh, kernel5x5);
+    cv::morphologyEx(thresh, thresh, cv::MORPH_CLOSE, kernel5x5);
+    thresh = refineForegroundMask(thresh);
+
+    cv::Mat frame_lab;
+    cv::cvtColor(frame, frame_lab, cv::COLOR_BGR2Lab);
+    std::vector<cv::Mat> lab_channels;
+    cv::split(frame_lab, lab_channels);
+
+    // Red cars
+    cv::Mat red_mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+    cv::inRange(lab_channels[1], 140, 255, red_mask);
+    cv::dilate(red_mask, red_mask, kernel3x3);
+    red_mask = refineForegroundMask(red_mask);
+
+    cv::Mat final_mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+    cv::bitwise_or(thresh, red_mask, final_mask);
+    cv::bitwise_and(final_mask, green_mask, final_mask);
+
+    cv::imshow("Frame", frame);
+    cv::imshow("Best background", best_background);
+    cv::imshow("Foreground Mask", fgMask);
+    cv::imshow("Threshold", thresh);
+    cv::imshow("Green Mask", green_mask);
+    cv::imshow("Red Mask", red_mask);
+    cv::imshow("Mask", mask);
+    cv::imshow("Final Mask", final_mask);
+    cv::waitKey(0);
+    return cv::Mat();
+}
+
+
+/*
+cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+    cv::Mat best_background = selectClosestBackground(frame, empty_parkings);
+
+    cv::Mat frame_gray, best_background_gray;
+    cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(best_background, best_background_gray, cv::COLOR_BGR2GRAY);
+
     cv::Mat fgMask;
     cv::absdiff(frame_gray, best_background_gray, fgMask);
     cv::threshold(fgMask, fgMask, 50, 255, cv::THRESH_BINARY);
@@ -184,10 +277,13 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
 
     cv::imshow("Frame", frame);
     cv::imshow("Result", result);
+    cv::imshow("Foreground Mask", fgMask);
+    cv::imshow("Green Mask", green_mask);
     cv::imshow("Output", output);
     cv::waitKey(0);
     return result;
 }
+*/
 
 /*
 void CarSegmentation::computeHOG(cv::Mat &frame, std::vector<float> &descriptors) {

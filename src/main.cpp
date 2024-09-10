@@ -50,6 +50,21 @@ int main(int argc, char** argv) {
         }
     }
 
+    std::vector<cv::Mat> empty_parkings_aug;
+    path = "dataset/backgrounds";
+    if(fs::exists(path) && fs::is_directory(path)) {
+        for(const auto& entry : fs::directory_iterator(path)) {
+            cv::Mat empty_parking = cv::imread(entry.path().string());
+            if(!empty_parking.empty()) {
+                empty_parkings_aug.push_back(empty_parking);
+            } else {
+                std::cerr << "Failed to load image: " << entry.path().string() << std::endl;
+            }
+        }
+    } else {
+        std::cerr << "Directory does not exist or is not a directory: " << path << std::endl;
+    }
+
     // Masks loading
     std::vector<std::vector<cv::Mat>> parkingMasks;
     for (int i = 1; i <= 5; i++) {
@@ -144,6 +159,7 @@ int main(int argc, char** argv) {
     // Extracting HOG features for SVM
     // Decomment only if you want to retrain the SVM, heavy operation
     // Took only 100 images for each class
+    /*
     std::vector<int> labels;
     std::vector<cv::Mat> car_images;
     std::vector<cv::Mat> non_car_images;
@@ -187,6 +203,7 @@ int main(int argc, char** argv) {
     } else {
         std::cerr << "Directory does not exist or is not a directory." << std::endl;
     }
+    */
     CarSegmentation cs;
     /*
     cv::HOGDescriptor hog(cv::Size(64, 128), cv::Size(16, 16), cv::Size(8, 8), cv::Size(8, 8), 9);
@@ -223,6 +240,7 @@ int main(int argc, char** argv) {
     
     std::vector<cv::Mat> real_masks[4];
     std::vector<cv::Mat> maskImagesObtained;
+    //cs.trainBackgroundSubtractor(empty_parkings_aug);
     for(int i = 1; i <= 5; i++) {
         for(int j = 0; j < parkingImages[i].size(); j++) {
         //for(int i = 0; i < 1; i++) {
@@ -236,7 +254,7 @@ int main(int argc, char** argv) {
                 std::cerr << "Invalid mask" << std::endl;
                 return -1;
             }
-            cv::Mat mask = cs.detectCars(parking, parkingImages[0]);
+            cv::Mat mask = cs.detectCars(parking, empty_parkings_aug);
             //cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
             //real_masks[i - 1].push_back(true_mask);
             maskImagesObtained.push_back(mask);
