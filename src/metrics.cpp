@@ -21,6 +21,19 @@ float computeIoU(const BBox& box1, const BBox& box2) {
     return bbox_intersection / bbox_union;
 }
 
+float computeIoU(const cv::Mat mask, const cv::Mat ground_truth) {
+    cv::Mat inter_mask = mask & ground_truth;
+    cv::Mat union_mask = mask | ground_truth;
+
+    if (cv::countNonZero(ground_truth) == 0)
+        return 0.0f;
+
+    int inter_area = cv::countNonZero(inter_mask);
+    int union_area = cv::countNonZero(union_mask);
+
+    return (float)inter_area / union_area;
+}
+
 float computeAveragePrecision(const std::vector<float>& recalls, const std::vector<float>& precisions) {
 
     // Since I want to calculate the area under the precision-recall curve, I will modify the vectors
@@ -48,7 +61,6 @@ float computeAveragePrecision(const std::vector<float>& recalls, const std::vect
 
     return ap;
 }
-
 
 
 float computeMAP(const std::vector<BBox>& detections, const std::vector<BBox>& ground_truths, float iouThreshold) {

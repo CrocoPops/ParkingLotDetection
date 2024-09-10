@@ -120,6 +120,7 @@ int main(int argc, char** argv) {
 
     
     // PARKING DETECTION & CLASSIFICATION REAL
+    /*
     std::vector<BBox> real_bboxes;
     for(int i = 0; i < parkingImages[0].size(); i++) {
         cv::Mat parking = parkingImages[0][i];
@@ -138,7 +139,7 @@ int main(int argc, char** argv) {
         }
         imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes);
-        */
+        
          
 
        // PARKING DETECTION
@@ -151,7 +152,7 @@ int main(int argc, char** argv) {
 
         waitKey(0);
         cv::destroyAllWindows();
-    }
+    }*/
     
     
     // CAR SEGMENTATION
@@ -238,8 +239,10 @@ int main(int argc, char** argv) {
     // Array of vector, in position 0 there are the masks related of sequence 1
     // p_i = masks_i-1
     
+
     std::vector<cv::Mat> real_masks[4];
     std::vector<cv::Mat> maskImagesObtained;
+    std::vector<float> ious;
     //cs.trainBackgroundSubtractor(empty_parkings_aug);
     for(int i = 1; i <= 5; i++) {
         for(int j = 0; j < parkingImages[i].size(); j++) {
@@ -255,12 +258,28 @@ int main(int argc, char** argv) {
                 return -1;
             }
             cv::Mat mask = cs.detectCars(parking, empty_parkings_aug);
-            //cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
+            cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
             //real_masks[i - 1].push_back(true_mask);
             maskImagesObtained.push_back(mask);
+            // Real mask
+            cv::cvtColor(true_mask, true_mask, cv::COLOR_BGR2GRAY);
+            true_mask.setTo(255, true_mask != 128);
+            true_mask.setTo(0, true_mask == 128);
+            //cv::imshow("Real mask", true_mask);
+            //cv::imshow("Obtained mask", mask);
+            //cv::waitKey(0);
+            float iou = computeIoU(mask, true_mask);
+            std::cout << "IoU: " << iou << std::endl;
+            if(iou != 0)
+                ious.push_back(iou);
         }
     }
 
+    float mean_iou = 0.0f;
+    for(const auto& iou : ious)
+        mean_iou += iou;
+    mean_iou /= ious.size();
+    std::cout << "\nmIoU: " << mean_iou << std::endl;
 
     // PARKING DETECTION & CLASSIFICATION OUR MASKS
     /*for(int i = 0; i < parkingImages[0].size(); i++) {
