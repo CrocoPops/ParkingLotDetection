@@ -1050,6 +1050,42 @@ bool isBBoxInsideImage(const cv::RotatedRect& bbox, int image_width, int image_h
     return true;  // If all vertices are inside, return true
 }
 
+
+bool isTheContentEqual(const cv::RotatedRect& mirroredRect, const cv::RotatedRect& realRect, const cv::Mat& frame, double threshold = 10.0) {
+    // Get bounding boxes for the two rectangles (mirrored and real)
+    cv::Rect bbox_mirrored = mirroredRect.boundingRect();
+    cv::Rect bbox_real = realRect.boundingRect();
+
+    // Convert the frame to HSV color space
+    cv::Mat frameHSV;
+    cv::cvtColor(frame, frameHSV, cv::COLOR_BGR2HSV);
+
+    // Split the HSV channels and select the Saturation channel (S)
+    cv::Mat frameS;
+    std::vector<cv::Mat> channels;
+    cv::split(frameHSV, channels);
+    frameS = channels[1];  // S channel represents the saturation
+
+    // Ensure the bounding boxes are within image boundaries
+    bbox_mirrored &= cv::Rect(0, 0, frame.cols, frame.rows); 
+    bbox_real &= cv::Rect(0, 0, frame.cols, frame.rows);     
+
+    // Extract ROI (Region of Interest) for both rectangles from the Saturation channel
+    cv::Mat roi_mirrored = frameS(bbox_mirrored);
+    cv::Mat roi_real = frameS(bbox_real);
+
+    // Calculate the mean pixel values for both ROIs
+    double mean_mirrored = cv::mean(roi_mirrored)[0];  
+    double mean_real = cv::mean(roi_real)[0];          
+
+    // Calculate the absolute difference between the mean values
+    double difference = std::abs(mean_mirrored - mean_real);
+
+    // Return true if the difference is below the threshold
+    return difference < threshold;
+}
+
+
 std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
     std::vector<BBox> bounding_boxes;  // Vector to hold the resulting BBox objects
     std::set<std::pair<int, int>> used_pairs;
@@ -1151,23 +1187,24 @@ std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f
                     // Use line1 as the axis and mirror line2 across it
                     cv::Vec4f mirrored_line = mirrorLineAcrossAxis(line1, line2);
 
-                    std::cout<<"Mirrored line[1]: "<<mirrored_line[1]<<" line[1]"<<line1[1]<<std::endl;
-                    std::cout<<"Mirrored line[3]: "<<mirrored_line[3]<<" line[3]"<<line1[3]<<std::endl;
-                    std::cout<<std::endl;
-
                     // Check if the line to be mirrored is above the axis line (remember that the y-axis is inverted)
                     if (line2[1] < line1[1] && line2[3] < line1[3]) {
                         
 
                         // Merge the mirrored line with the axis
                         cv::Vec4f line = mergeLineSegments(line1, mirrored_line);
+                        cv::Vec4f realLine = mergeLineSegments(line1, line2);
 
-                        cv::RotatedRect mirroredRect(cv::Point((line[0] + line[2]) / 2, (line[1] + line[3]) / 2), 
+                        cv::RotatedRect realRect(cv::Point((realLine[0] + realLine[2]) / 2, (realLine[1] + realLine[3]) / 2),
+                             cv::Size(calculateLength(realLine), distanceBetweenSegments(line1, line2)),
+                             calculateLineAngle(realLine));
+
+                        cv::RotatedRect mirroredRect(cv::Point((line[0] + line[2]) / 2, (line[1] + line[3]) / 2 + 20),  //put down the center of the rectangle 
                                                      cv::Size(calculateLength(line), distanceBetweenSegments(line1, mirrored_line)), 
                                                      calculateLineAngle(line));
 
-                        // If mirroredRect is inside the image
-                        if (isBBoxInsideImage(mirroredRect, frame.cols, frame.rows)) {
+                        // If mirroredRect is inside the image and the content of the realBBox is similar to the new one (works only for the empty parking lot)
+                        if (isBBoxInsideImage(mirroredRect, frame.cols, frame.rows) && isTheContentEqual(mirroredRect, realRect, frame)) {
 
                             // Add the mirrored BBox to the vector
                             BBox mirrored_bbox(static_cast<int>(mirroredRect.center.x),
@@ -1216,6 +1253,94 @@ std::vector<cv::Vec4f> removeLinesBetween(const std::vector<cv::Vec4f>& lines, d
         }
     }
     return filteredLines;
+}
+
+bool areBoxesEqual(const BBox& bbox1, const BBox& bbox2) {
+    return bbox1.getX() == bbox2.getX() &&
+           bbox1.getY() == bbox2.getY() &&
+           bbox1.getWidth() == bbox2.getWidth() &&
+           bbox1.getHeight() == bbox2.getHeight() &&
+           std::abs(bbox1.getAngle() - bbox2.getAngle()) < 1e-5; // Using a small tolerance for angle comparison
+}
+
+// Function to remove duplicate BBox objects
+std::vector<BBox> getUniqueBoundingBoxes(const std::vector<BBox>& bboxes) {
+    // Copy the input vector
+    std::vector<BBox> uniqueBBoxes = bboxes;
+
+    // Sort the vector to bring duplicates together (required by std::unique)
+    std::sort(uniqueBBoxes.begin(), uniqueBBoxes.end(), [](const BBox& a, const BBox& b) {
+        if (a.getX() != b.getX()) return a.getX() < b.getX();
+        if (a.getY() != b.getY()) return a.getY() < b.getY();
+        if (a.getWidth() != b.getWidth()) return a.getWidth() < b.getWidth();
+        if (a.getHeight() != b.getHeight()) return a.getHeight() < b.getHeight();
+        return a.getAngle() < b.getAngle();
+    });
+
+    // Use std::unique with the custom comparator to remove duplicates
+    auto last = std::unique(uniqueBBoxes.begin(), uniqueBBoxes.end(), areBoxesEqual);
+
+    // Resize the vector to remove the "extra" elements after std::unique
+    uniqueBBoxes.erase(last, uniqueBBoxes.end());
+
+    return uniqueBBoxes;
+}
+
+
+double getIntersectionArea(const BBox& bbox1, const BBox& bbox2) {
+    // Create bounding boxes as Rects
+    cv::Rect rect1(bbox1.getX(), bbox1.getY(), bbox1.getWidth(), bbox1.getHeight());
+    cv::Rect rect2(bbox2.getX(), bbox2.getY(), bbox2.getWidth(), bbox2.getHeight());
+
+    // Find intersection rectangle
+    cv::Rect intersection = rect1 & rect2; // Intersection of two rects
+
+    // Return the area of the intersection
+    return intersection.area();
+}
+
+// Function to remove smaller BBox if intersection area exceeds threshold
+std::vector<BBox> filterBoundingBoxesByIntersection(std::vector<BBox>& bboxes, double threshold) {
+    std::vector<BBox> filteredBBoxes;
+    
+    std::vector<bool> to_remove(bboxes.size(), false); // Keep track of boxes to remove
+    
+    for (int i = 0; i < bboxes.size(); i++) {
+        if (to_remove[i]) continue; // Skip if already marked for removal
+
+        for (int j = i + 1; j < bboxes.size(); j++) {
+            if (to_remove[j]) continue; // Skip if already marked for removal
+            
+            // Calculate intersection area
+            double intersectionArea = getIntersectionArea(bboxes[i], bboxes[j]);
+
+            // Calculate areas of both bounding boxes
+            double area1 = bboxes[i].getWidth() * bboxes[i].getHeight();
+            double area2 = bboxes[j].getWidth() * bboxes[j].getHeight();
+
+            // Calculate the percentage of intersection relative to the smaller box
+            double min_area = std::min(area1, area2);
+            double overlap_ratio = intersectionArea / min_area;
+
+            // If overlap exceeds threshold, remove the smaller BBox
+            if (overlap_ratio >= threshold) {
+                if (area1 > area2) {
+                    to_remove[i] = true; // Mark bbox[i] for removal
+                } else {
+                    to_remove[j] = true; // Mark bbox[j] for removal
+                }
+            }
+        }
+    }
+
+    // Collect remaining BBoxes
+    for (int i = 0; i < bboxes.size(); i++) {
+        if (!to_remove[i]) {
+            filteredBBoxes.push_back(bboxes[i]);
+        }
+    }
+
+    return filteredBBoxes;
 }
 
 
@@ -1346,6 +1471,12 @@ void ParkingDetection::detect(cv::Mat &frame) {
 
     std::vector<BBox> boundingBoxes = createBoundingBoxes(frame, lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
 
+    // Remove duplicate BBox objectsà
+    boundingBoxes = getUniqueBoundingBoxes(boundingBoxes);
+
+    // Filter the bounding boxes based on the intersection area
+    double intersectionThreshold = 0.3;
+    boundingBoxes = filterBoundingBoxesByIntersection(boundingBoxes, intersectionThreshold);
 
     // Draw the bounding boxes
     cv::Mat bounding_box = frame.clone();
@@ -1358,20 +1489,15 @@ void ParkingDetection::detect(cv::Mat &frame) {
         }
     }
 
+
+
     
-    imshow("Cluster", c);
-    imshow("Merged", m);
-    imshow("Unified", img);
-    imshow("Long lines", l);
-    imshow("Kmeans", k);
-    imshow("Divided", d);
-    imshow("Removed middle", r);
-    imshow("Long lines 2", l);
     imshow("Bounding box", bounding_box);
     
 
     cv::waitKey(0);
 }
+
 
 std::vector<BBox> ParkingDetection::getParkings(cv::Mat frame) {
     // TODO: Implement this method
