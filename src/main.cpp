@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 
     
     // PARKING DETECTION & CLASSIFICATION REAL
-    
+    /*
     std::vector<BBox> real_bboxes;
     for(int i = 0; i < parkingImages[0].size(); i++) {
         cv::Mat parking = parkingImages[0][i];
@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
         imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes);
         
-         */
+         
 
        // PARKING DETECTION
         ParkingDetection pd;
@@ -156,7 +156,7 @@ int main(int argc, char** argv) {
         waitKey(0);
         cv::destroyAllWindows();
     }
-    
+    */
     
     // CAR SEGMENTATION
 
@@ -241,17 +241,30 @@ int main(int argc, char** argv) {
     
     // Array of vector, in position 0 there are the masks related of sequence 1
     // p_i = masks_i-1
-    
 
-    std::vector<cv::Mat> real_masks[4];
+    // SEMPLIFICATION
+    cv::Point p1(870, 0);
+    cv::Point p2(1275, 225);
+
+    float slope = float(p2.y - p1.y) / float(p2.x - p1.x);
+    float q = p1.y - slope * p1.x;
+    
+    //std::vector<cv::Mat> real_masks[4];
     std::vector<cv::Mat> maskImagesObtained;
-    std::vector<float> ious;
+    std::vector<std::vector<float>> all_ious;
     //cs.trainBackgroundSubtractor(empty_parkings_aug);
-    for(int i = 1; i <= 5; i++) {
+    for(int i = 0; i <= 5; i++) {
+        std::vector<float> ious;
+        std::cout << "Sequence " << i << ":" << std::endl;
         for(int j = 0; j < parkingImages[i].size(); j++) {
         //for(int i = 0; i < 1; i++) {
             cv::Mat parking = parkingImages[i][j];
-            cv::Mat parking_mask = parkingMasks[i - 1][j];
+            cv::Mat parking_mask;
+            if(i != 0)
+                parking_mask = parkingMasks[i - 1][j];
+            else
+                parking_mask = cv::Mat::zeros(parking.size(), parking.type());
+
             if (parking.empty()) {
                 std::cerr << "Invalid input" << std::endl;
                 return -1;
@@ -262,27 +275,50 @@ int main(int argc, char** argv) {
             }
             cv::Mat mask = cs.detectCars(parking, empty_parkings_aug);
             cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
-            //real_masks[i - 1].push_back(true_mask);
             maskImagesObtained.push_back(mask);
             // Real mask
             cv::cvtColor(true_mask, true_mask, cv::COLOR_BGR2GRAY);
             true_mask.setTo(255, true_mask != 128);
             true_mask.setTo(0, true_mask == 128);
+            // Semplification: cars in the upper-right part of the image are not considered
+            // Above the line connecting the two points (0,870), (225, 1275) all black
+            for(int x = 0; x < mask.cols; x++) {
+                int y = slope * x + q;
+                for(int i = 0; i < y && y < mask.rows; i++) {
+                    mask.at<uchar>(i, x) = 0;
+                    true_mask.at<uchar>(i, x) = 0;
+                }
+            }
             //cv::imshow("Real mask", true_mask);
             //cv::imshow("Obtained mask", mask);
             //cv::waitKey(0);
             float iou = computeIoU(mask, true_mask);
             std::cout << "IoU: " << iou << std::endl;
-            if(iou != 0)
-                ious.push_back(iou);
+            ious.push_back(iou);
         }
+        all_ious.push_back(ious);
     }
 
-    float mean_iou = 0.0f;
+    // mIoU
+    float global_iou = 0.0f;
+    int size = 0;
+    for(std::vector<float> ious: all_ious) {
+        float mean_iou = 0.0f;
+        for(const auto& iou : ious)
+            mean_iou += iou;
+        global_iou += mean_iou;
+        mean_iou /= ious.size();
+        size += ious.size();
+        std::cout << "\nmIoU: " << mean_iou << std::endl;
+    }
+    global_iou /= size;
+    std::cout << "\nGlobal mIoU: " << global_iou << std::endl;
+
+    /*float mean_iou = 0.0f;
     for(const auto& iou : ious)
         mean_iou += iou;
     mean_iou /= ious.size();
-    std::cout << "\nmIoU: " << mean_iou << std::endl;
+    std::cout << "\nmIoU: " << mean_iou << std::endl;*/
 
     // PARKING DETECTION & CLASSIFICATION OUR MASKS
     /*for(int i = 0; i < parkingImages[0].size(); i++) {
