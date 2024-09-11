@@ -1199,7 +1199,7 @@ std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f
                              cv::Size(calculateLength(realLine), distanceBetweenSegments(line1, line2)),
                              calculateLineAngle(realLine));
 
-                        cv::RotatedRect mirroredRect(cv::Point((line[0] + line[2]) / 2, (line[1] + line[3]) / 2 + 20),  //put down the center of the rectangle 
+                        cv::RotatedRect mirroredRect(cv::Point((line[0] + line[2]) / 2 + 20, (line[1] + line[3]) / 2 + 20),  // Put down and right the center of the rectangle 
                                                      cv::Size(calculateLength(line), distanceBetweenSegments(line1, mirrored_line)), 
                                                      calculateLineAngle(line));
 
@@ -1430,15 +1430,16 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     // Filter the bounding boxes based on the intersection area
     double intersectionThreshold = 0.3;
     boundingBoxes = filterBoundingBoxesByIntersection(boundingBoxes, intersectionThreshold);
-
+    
+    
     // Reduce the size of the BBoxes
     for (BBox &bbox : boundingBoxes)
     {
         bbox.setWidth(bbox.getWidth() * 0.9);
-        bbox.setHeight(bbox.getHeight() * 0.9);
+        bbox.setHeight(bbox.getHeight() * 1.1);
     }
 
-
+    
     return boundingBoxes;
 
 }
@@ -1447,6 +1448,7 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
 
 std::vector<BBox> ParkingDetection::numberParkings(const std::vector<BBox> parkings) {
     //TODO: Implement this method
+    return parkings;
 }
 
 void ParkingDetection::draw(const cv::Mat &frame, const std::vector<BBox> parkings) {

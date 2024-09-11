@@ -149,6 +149,30 @@ int main(int argc, char** argv) {
 
         std::vector<BBox> detected_bboxes = pd.detect(parking);
         pd.draw(parking, detected_bboxes);
+
+        cv::Mat frame_copy = parking.clone();
+        for (const BBox &parking : detected_bboxes) {
+            cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
+            cv::Point2f vertices[4];
+            rotatedRect.points(vertices);
+            for (int i = 0; i < 4; i++)
+            {
+                cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 0), 2);
+            }
+        }
+
+        for (const BBox &parking : real_bboxes) {
+            cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
+            cv::Point2f vertices[4];
+            rotatedRect.points(vertices);
+            for (int i = 0; i < 4; i++)
+            {
+                cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], cv::Scalar(255, 0, 0), 2);
+            }
+        }
+        imshow("Real bounding boxes with our mask", frame_copy);
+        cv::waitKey(0);
+
         // mAP
         std::cout << "METRICS: " << std::endl;
         std::cout << "mAP: " << computeMAP(detected_bboxes, real_bboxes, 0.5) << std::endl;
