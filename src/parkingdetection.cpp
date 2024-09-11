@@ -1033,6 +1033,7 @@ cv::Vec4f mirrorLineAcrossAxis(const cv::Vec4f& axis, const cv::Vec4f& line_to_m
     return cv::Vec4f(mirrored_B1.x, mirrored_B1.y, mirrored_B2.x, mirrored_B2.y);
 }
 
+
 bool isBBoxInsideImage(const cv::RotatedRect& bbox, int image_width, int image_height) {
     // Get the four vertices of the rotated rectangle
     cv::Point2f vertices[4];
@@ -1154,9 +1155,9 @@ std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f
                     std::cout<<"Mirrored line[3]: "<<mirrored_line[3]<<" line[3]"<<line1[3]<<std::endl;
                     std::cout<<std::endl;
 
-                    // Check if the mirrored bounding box is below the axis line (line1)
-                    if (mirrored_line[1] > line1[1] && mirrored_line[3] > line1[3]) {
-                        // The mirrored line's y-coordinates should be below the axis line's y-coordinates
+                    // Check if the line to be mirrored is above the axis line (remember that the y-axis is inverted)
+                    if (line2[1] < line1[1] && line2[3] < line1[3]) {
+                        
 
                         // Merge the mirrored line with the axis
                         cv::Vec4f line = mergeLineSegments(line1, mirrored_line);
