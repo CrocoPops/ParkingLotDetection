@@ -11,9 +11,8 @@ class ParkingDetection {
         std::vector<BBox> parkings;
     public:
         ParkingDetection(std::vector<BBox> parkings = {});
-        void detect(cv::Mat &frame);
-        int numberParkings();
-        void draw(cv::Mat &frame);
-        std::vector<BBox> getParkings();
+        std::vector<BBox> detect(const cv::Mat &frame);
+        std::vector<BBox> numberParkings(const std::vector<BBox> parkings);
+        void draw(const cv::Mat &frame, const std::vector<BBox> parkings);
 };
 #endif

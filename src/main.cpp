@@ -146,10 +146,9 @@ int main(int argc, char** argv) {
 
        // PARKING DETECTION
         ParkingDetection pd;
-        pd.detect(parking);
-        pd.draw(parking);
 
-        std::vector<BBox> detected_bboxes = pd.getParkings();
+        std::vector<BBox> detected_bboxes = pd.detect(parking);
+        pd.draw(parking, detected_bboxes);
         // mAP
         std::cout << "METRICS: " << std::endl;
         std::cout << "mAP: " << computeMAP(detected_bboxes, real_bboxes, 0.5) << std::endl;
