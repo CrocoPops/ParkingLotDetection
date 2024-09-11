@@ -1424,12 +1424,20 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
 
     std::vector<BBox> boundingBoxes = createBoundingBoxes(frame, lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
 
-    // Remove duplicate BBox objectsà
+    // Remove duplicate BBox objects
     boundingBoxes = getUniqueBoundingBoxes(boundingBoxes);
 
     // Filter the bounding boxes based on the intersection area
     double intersectionThreshold = 0.3;
     boundingBoxes = filterBoundingBoxesByIntersection(boundingBoxes, intersectionThreshold);
+
+    // Reduce the size of the BBoxes
+    for (BBox &bbox : boundingBoxes)
+    {
+        bbox.setWidth(bbox.getWidth() * 0.9);
+        bbox.setHeight(bbox.getHeight() * 0.9);
+    }
+
 
     return boundingBoxes;
 

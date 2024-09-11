@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 
     
     // PARKING DETECTION & CLASSIFICATION REAL
-    /*
+    
     std::vector<BBox> real_bboxes;
     for(int i = 0; i < parkingImages[0].size(); i++) {
         cv::Mat parking = parkingImages[0][i];
@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
         imshow("Frame", parking);
         imshow("Real bounding boxes", realBBoxes);
         
-         
+         */
 
        // PARKING DETECTION
         ParkingDetection pd;
@@ -156,7 +156,7 @@ int main(int argc, char** argv) {
         waitKey(0);
         cv::destroyAllWindows();
     }
-    */
+    
     
     // CAR SEGMENTATION
 
