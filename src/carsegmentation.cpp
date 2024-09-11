@@ -60,8 +60,8 @@ cv::Mat CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     cv::Mat result;
     cv::addWeighted(coloredMask, 0.7, frame, 1, 0, result);
 
-    cv::imshow("Contours", result);
-    cv::waitKey(0);
+    //cv::imshow("Contours", result);
+    //cv::waitKey(0);
 
     return coloredMask;
 }
@@ -195,14 +195,44 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
     cv::bitwise_or(final_mask, reflex_mask, final_mask);
     cv::bitwise_and(final_mask, green_mask, final_mask);
 
+    cv::Mat black_cars = cv::Mat::zeros(frame.size(), CV_8UC3);
+    cv::inRange(hsv_channels[0], 80, 130, black_cars);
+    black_cars = refineForegroundMask(black_cars, 600, 0.5, 4.0);
+
+    // Connect components in final mask that are attached in black cars
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(black_cars, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    cv::Mat refined_mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+    for(int i = 0; i < contours.size(); i++) {
+        cv::Mat component_mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+        cv::drawContours(component_mask, contours, i, cv::Scalar(255), cv::FILLED);
+
+        cv::Mat intersection;
+        cv::bitwise_and(component_mask, final_mask, intersection);
+        
+        if(cv::countNonZero(intersection) > 0 && cv::contourArea(contours[i]) < 3000)
+            cv::bitwise_or(refined_mask, component_mask, refined_mask);
+    }
+
+    cv::bitwise_or(final_mask, refined_mask, final_mask);
+
     cv::Mat kernel25x25 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(25, 25));
     cv::morphologyEx(final_mask, final_mask, cv::MORPH_CLOSE, kernel25x25);
+
+    final_mask = refineForegroundMask(final_mask, 600, 0.5, 4.0);
 
     cv::Mat output = frame.clone();
     cv::Mat colored_mask = cv::Mat::zeros(frame.size(), CV_8UC3);
     colored_mask.setTo(cv::Scalar(0, 0, 255), final_mask == 255);
     cv::addWeighted(output, 1, colored_mask, 0.7, 0, output);
 
+    cv::imshow("Frame", frame);
+    cv::imshow("Threshold", thresh);
+    cv::imshow("H Channel", hsv_channels[0]);
+    cv::imshow("Black Cars", black_cars);
+    cv::imshow("Refined Mask", refined_mask);
+    cv::imshow("Final Mask", final_mask);
     cv::imshow("Output", output);
     cv::waitKey(0);
     return final_mask;
