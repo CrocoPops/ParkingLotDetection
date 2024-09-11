@@ -998,12 +998,62 @@ std::vector<cv::Vec4f> sortLines(const std::vector<cv::Vec4f>& lines) {
     return sorted_lines;
 }
 
+// Function to mirror line2 across line1 (as the axis of symmetry)
+cv::Vec4f mirrorLineAcrossAxis(const cv::Vec4f& axis, const cv::Vec4f& line_to_mirror) {
+    // Extract points from the line segments
+    cv::Point2f A1(axis[0], axis[1]); // Start point of axis line
+    cv::Point2f A2(axis[2], axis[3]); // End point of axis line
+    cv::Point2f B1(line_to_mirror[0], line_to_mirror[1]); // Start point of line to mirror
+    cv::Point2f B2(line_to_mirror[2], line_to_mirror[3]); // End point of line to mirror
 
+    // Function to project a point onto a line and reflect it
+    auto reflectPoint = [](const cv::Point2f& p, const cv::Point2f& a, const cv::Point2f& b) {
+        // Compute direction vector of the axis
+        cv::Point2f ab = b - a;
 
-std::vector<BBox> createBoundingBoxes(const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
+        // Normalize the direction vector
+        double ab_length2 = ab.x * ab.x + ab.y * ab.y;
+        cv::Point2f ab_norm = ab * (1.0 / std::sqrt(ab_length2));
+
+        // Projection of point p onto the line defined by a and ab_norm
+        double projection = (p - a).dot(ab_norm);
+        cv::Point2f projection_point = a + ab_norm * projection;
+
+        // Reflect p about the projection point
+        cv::Point2f reflected_point = 2 * projection_point - p;
+
+        return reflected_point;
+    };
+
+    // Reflect both points B1 and B2 across the axis
+    cv::Point2f mirrored_B1 = reflectPoint(B1, A1, A2);
+    cv::Point2f mirrored_B2 = reflectPoint(B2, A1, A2);
+
+    // Return the new mirrored line as Vec4f
+    return cv::Vec4f(mirrored_B1.x, mirrored_B1.y, mirrored_B2.x, mirrored_B2.y);
+}
+
+bool isBBoxInsideImage(const cv::RotatedRect& bbox, int image_width, int image_height) {
+    // Get the four vertices of the rotated rectangle
+    cv::Point2f vertices[4];
+    bbox.points(vertices);
+
+    // Check if all vertices are within the image boundaries
+    for (int i = 0; i < 4; i++) {
+        if (vertices[i].x < 0 || vertices[i].x >= image_width ||   // Check if x is within the image width
+            vertices[i].y < 0 || vertices[i].y >= image_height) {  // Check if y is within the image height
+            return false;  // If any vertex is outside the image, return false
+        }
+    }
+
+    return true;  // If all vertices are inside, return true
+}
+
+std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
     std::vector<BBox> bounding_boxes;  // Vector to hold the resulting BBox objects
     std::set<std::pair<int, int>> used_pairs;
     std::set<std::pair<int, int>> counter_lines;
+    std::map<int, int> line_connections;  // To track how many connections each line has
 
     for (int i = 0; i < lines.size(); i++) {
         std::vector<std::pair<int, double>> candidates;
@@ -1047,6 +1097,10 @@ std::vector<BBox> createBoundingBoxes(const std::vector<cv::Vec4f>& lines, int m
             used_pairs.insert(std::make_pair(i, nearest_line_idx));
             used_pairs.insert(std::make_pair(nearest_line_idx, i));
 
+            // Track the connections
+            line_connections[i]++;
+            line_connections[nearest_line_idx]++;
+
             cv::Vec4f merged_line = mergeLineSegments(line1, line2);
             cv::RotatedRect rotatedRect(cv::Point((merged_line[0] + merged_line[2]) / 2, (merged_line[1] + merged_line[3]) / 2),
                                         cv::Size(calculateLength(merged_line), distanceBetweenSegments(line1, line2)),
@@ -1079,6 +1133,60 @@ std::vector<BBox> createBoundingBoxes(const std::vector<cv::Vec4f>& lines, int m
         }
     }
 
+    // Handle lines that are only connected to one other line
+    for (const auto& connection : line_connections) {
+        if (connection.second == 1) {  // Line is connected to only one other line
+            int line_idx = connection.first;
+
+            // Find the line it connects to
+            for (const auto& pair : used_pairs) {
+                if (pair.first == line_idx || pair.second == line_idx) {
+                    int other_line_idx = (pair.first == line_idx) ? pair.second : pair.first;
+
+                    // Create a specular bounding box mirrored across the line
+                    cv::Vec4f line1 = lines[line_idx];       // Axis line
+                    cv::Vec4f line2 = lines[other_line_idx]; // Line to mirror
+
+                    // Use line1 as the axis and mirror line2 across it
+                    cv::Vec4f mirrored_line = mirrorLineAcrossAxis(line1, line2);
+
+                    std::cout<<"Mirrored line[1]: "<<mirrored_line[1]<<" line[1]"<<line1[1]<<std::endl;
+                    std::cout<<"Mirrored line[3]: "<<mirrored_line[3]<<" line[3]"<<line1[3]<<std::endl;
+                    std::cout<<std::endl;
+
+                    // Check if the mirrored bounding box is below the axis line (line1)
+                    if (mirrored_line[1] > line1[1] && mirrored_line[3] > line1[3]) {
+                        // The mirrored line's y-coordinates should be below the axis line's y-coordinates
+
+                        // Merge the mirrored line with the axis
+                        cv::Vec4f line = mergeLineSegments(line1, mirrored_line);
+
+                        cv::RotatedRect mirroredRect(cv::Point((line[0] + line[2]) / 2, (line[1] + line[3]) / 2), 
+                                                     cv::Size(calculateLength(line), distanceBetweenSegments(line1, mirrored_line)), 
+                                                     calculateLineAngle(line));
+
+                        // If mirroredRect is inside the image
+                        if (isBBoxInsideImage(mirroredRect, frame.cols, frame.rows)) {
+
+                            // Add the mirrored BBox to the vector
+                            BBox mirrored_bbox(static_cast<int>(mirroredRect.center.x),
+                                            static_cast<int>(mirroredRect.center.y),
+                                            static_cast<int>(mirroredRect.size.width),
+                                            static_cast<int>(mirroredRect.size.height),
+                                            mirroredRect.angle,
+                                            false);  // Occupied is set to false
+
+                            // Update connection counter
+                            line_connections[line_idx]++;
+                            line_connections[other_line_idx]++;
+                            bounding_boxes.push_back(mirrored_bbox);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return bounding_boxes;  // Return the vector of BBox objects
 }
 
@@ -1098,7 +1206,6 @@ std::vector<cv::Vec4f> removeLinesBetween(const std::vector<cv::Vec4f>& lines, d
                     if(z == j) continue;
                     double xDistance2 = std::abs(filteredLines[j][2] - filteredLines[z][0]);
                     double yDistance2 = std::abs(filteredLines[j][3] - filteredLines[z][1]);
-
                     if(xDistance2 < xdistanceThreshold && yDistance2 < ydistanceThreshold || (xDistance < 15 && length > 30)) {
                         filteredLines.erase(filteredLines.begin() + j);
                         break;
@@ -1236,7 +1343,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
     double maxAreaThreshold = 20000;
     
 
-    std::vector<BBox> boundingBoxes = createBoundingBoxes(lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
+    std::vector<BBox> boundingBoxes = createBoundingBoxes(frame, lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
 
 
     // Draw the bounding boxes
