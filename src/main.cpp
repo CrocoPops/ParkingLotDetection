@@ -128,10 +128,12 @@ int main(int argc, char** argv) {
             std::cerr << "Invalid input" << std::endl;
             return -1;
         }
-        /*
+        
         // Show real image bounding box
         Mat realBBoxes = parking.clone();
         real_bboxes = parseParkingXML(bboxesPaths[0][i]);
+        
+        /*
         for (auto& bbox : real_bboxes) {
             // bbox.toString();
             //bbox.setOccupied(parkingMasks[3][i]);
@@ -146,9 +148,11 @@ int main(int argc, char** argv) {
         ParkingDetection pd;
         pd.detect(parking);
         pd.draw(parking);
+
+        std::vector<BBox> detected_bboxes = pd.getParkings();
         // mAP
         std::cout << "METRICS: " << std::endl;
-        std::cout << computeMAP(real_bboxes, real_bboxes, 0.5) << std::endl;
+        std::cout << "mAP: " << computeMAP(detected_bboxes, real_bboxes, 0.5) << std::endl;
 
         waitKey(0);
         cv::destroyAllWindows();

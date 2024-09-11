@@ -1489,7 +1489,8 @@ void ParkingDetection::detect(cv::Mat &frame) {
         }
     }
 
-
+    for(const BBox bbox : boundingBoxes)
+        this->parkings.push_back(bbox);
 
     
     imshow("Bounding box", bounding_box);
@@ -1499,7 +1500,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
 }
 
 
-std::vector<BBox> ParkingDetection::getParkings(cv::Mat frame) {
+std::vector<BBox> ParkingDetection::getParkings() {
     // TODO: Implement this method
     return parkings;
 }

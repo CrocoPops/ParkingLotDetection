@@ -14,6 +14,6 @@ class ParkingDetection {
         void detect(cv::Mat &frame);
         int numberParkings();
         void draw(cv::Mat &frame);
-        std::vector<BBox> getParkings(cv::Mat frame);
+        std::vector<BBox> getParkings();
 };
 #endif
