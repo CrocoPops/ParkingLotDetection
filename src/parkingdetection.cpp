@@ -1000,13 +1000,13 @@ std::vector<cv::Vec4f> sortLines(const std::vector<cv::Vec4f>& lines) {
 
 
 
-cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
-    cv::Mat bounding_box = frame.clone();
+std::vector<BBox> createBoundingBoxes(const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
+    std::vector<BBox> bounding_boxes;  // Vector to hold the resulting BBox objects
     std::set<std::pair<int, int>> used_pairs;
     std::set<std::pair<int, int>> counter_lines;
 
     for (int i = 0; i < lines.size(); i++) {
-        std::vector<std::pair<int, double>> candidates;  
+        std::vector<std::pair<int, double>> candidates;
 
         // Find valid candidate lines
         for (int j = 0; j < lines.size(); j++) {
@@ -1019,7 +1019,6 @@ cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, i
             double distance = distanceBetweenSegments2(lines[i], lines[j]);
             double angle1 = calculateLineAngle(lines[i]);
             double angle2 = calculateLineAngle(lines[j]);
-
 
             if (distance > minDistanceThreshold && distance < maxDistanceThreshold && std::abs(angle1 - angle2) < maxAngleThreshold) {
                 candidates.push_back(std::make_pair(j, distance));
@@ -1043,33 +1042,33 @@ cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, i
         if (nearest_line_idx != -1) {
             cv::Vec4f line1 = lines[i];
             cv::Vec4f line2 = lines[nearest_line_idx];
-            
+
             // Store the pair of lines as used
             used_pairs.insert(std::make_pair(i, nearest_line_idx));
             used_pairs.insert(std::make_pair(nearest_line_idx, i));
 
+            cv::Vec4f merged_line = mergeLineSegments(line1, line2);
+            cv::RotatedRect rotatedRect(cv::Point((merged_line[0] + merged_line[2]) / 2, (merged_line[1] + merged_line[3]) / 2),
+                                        cv::Size(calculateLength(merged_line), distanceBetweenSegments(line1, line2)),
+                                        calculateLineAngle(merged_line));
 
-            cv::Vec4f line = mergeLineSegments(line1, line2);
-
-            cv::RotatedRect rotatedRect(cv::Point((line[0] + line[2]) / 2, (line[1] + line[3]) / 2), cv::Size(calculateLength(line), distanceBetweenSegments(line1, line2)), calculateLineAngle(line));
-
-            cv::Point2f vertices[4];
-            rotatedRect.points(vertices);
-
-            
             // Calculate the area of the rectangle
             double area = rotatedRect.size.area();
 
             // Check if the area is within the thresholds
             if (area < minAreaThreshold || area > maxAreaThreshold) {
-                continue; // Skip this candidate and try the next one
+                continue;  // Skip this candidate and try the next one
             }
 
-            // Draw the rotated rectangle using polylines
-            for (int i = 0; i < 4; i++) {
-                // Draw lines between consecutive vertices
-                cv::line(bounding_box, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 255), 2);
-            }
+            // Add the new BBox to the vector
+            BBox bbox(static_cast<int>(rotatedRect.center.x),
+                      static_cast<int>(rotatedRect.center.y),
+                      static_cast<int>(rotatedRect.size.width),
+                      static_cast<int>(rotatedRect.size.height),
+                      rotatedRect.angle,
+                      false);  // Occupied is set to false
+
+            bounding_boxes.push_back(bbox);
 
             found_valid_rectangle = true;
         }
@@ -1080,9 +1079,8 @@ cv::Mat drawBoundingBoxes(cv::Mat& frame, const std::vector<cv::Vec4f>& lines, i
         }
     }
 
-    return bounding_box;
+    return bounding_boxes;  // Return the vector of BBox objects
 }
-
 
 // Function to remove lines between others within a threshold distance
 std::vector<cv::Vec4f> removeLinesBetween(const std::vector<cv::Vec4f>& lines, double xdistanceThreshold, double ydistanceThreshold, double lengthThreshold) {
@@ -1236,11 +1234,23 @@ void ParkingDetection::detect(cv::Mat &frame) {
     int maxAngleThreshold = 20;
     double minAreaThreshold = 100;
     double maxAreaThreshold = 20000;
-    int xThreshold = 20;
-    cv::Mat bounding_box = drawBoundingBoxes(frame, lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
+    
+
+    std::vector<BBox> boundingBoxes = createBoundingBoxes(lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
 
 
-    imshow("Lines", frame);
+    // Draw the bounding boxes
+    cv::Mat bounding_box = frame.clone();
+    for (const auto& bbox : boundingBoxes) {
+        cv::RotatedRect rotatedRect(cv::Point(bbox.getX(), bbox.getY()), cv::Size(bbox.getWidth(), bbox.getHeight()), bbox.getAngle());
+        cv::Point2f vertices[4];
+        rotatedRect.points(vertices);
+        for (int i = 0; i < 4; i++) {
+            cv::line(bounding_box, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 255), 2);
+        }
+    }
+
+    
     imshow("Cluster", c);
     imshow("Merged", m);
     imshow("Unified", img);
@@ -1250,6 +1260,7 @@ void ParkingDetection::detect(cv::Mat &frame) {
     imshow("Removed middle", r);
     imshow("Long lines 2", l);
     imshow("Bounding box", bounding_box);
+    
 
     cv::waitKey(0);
 }
