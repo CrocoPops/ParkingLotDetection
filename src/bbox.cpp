@@ -112,15 +112,44 @@ void BBox::setOccupied(cv::Mat &mask) {
 void BBox::setOccupiedfromObtainedMask(cv::Mat &mask) {
     int x = this->getX();
     int y = this->getY();
+    int width = this->getWidth(); 
+    int height = this->getHeight();
+    int angle = this->getAngle();
+    cv::RotatedRect rect = cv::RotatedRect(cv::Point2f(x, y), cv::Size2f(width, height), angle);
 
+    cv::Point2f vertices[4];
+    rect.points(vertices);
+
+    cv::Point intVertices[4];
+    for (int i = 0; i < 4; i++)
+        intVertices[i] = cv::Point(static_cast<int>(vertices[i].x), static_cast<int>(vertices[i].y));
+
+    cv::Mat roiMask = cv::Mat::zeros(mask.size(), CV_8UC1);
+    cv::fillConvexPoly(roiMask, intVertices, 4, cv::Scalar(255));
+
+    // Calculate the intersection of the ROI mask and the original mask
+    cv::Mat intersection;
+    cv::bitwise_and(mask, roiMask, intersection);
+
+    // Calculate the white pixel count and total pixel count in the ROI
+    int whitePixelCount = cv::countNonZero(intersection);
+    int totalPixelCount = rect.size.area();
+    
+    double whitePixelRatio = static_cast<double>(whitePixelCount) / totalPixelCount;
+    
+    double whitePixelThreshold = 0.3;
+    bool occupiedArea = (whitePixelRatio > whitePixelThreshold);
+
+    // Now we check if the center of the bounding box is occupied
     // Check if the pixel at the center is occupied
     uchar centerColor = mask.at<uchar>(y, x);
+    bool occupiedCenter;
     if(centerColor == 0) {
-        bool occupied = false;
+        occupiedCenter = false;
 
         // Check the neighbors pixels from the center
-        int Xradius = 50;
-        int Yradius = 15;
+        int Xradius = 10;
+        int Yradius = 5;
         for (int dy = -Yradius; dy <= Yradius; dy++) {
             for (int dx = -Xradius; dx <= Xradius; dx++) {
                 int nx = x + dx;
@@ -128,21 +157,22 @@ void BBox::setOccupiedfromObtainedMask(cv::Mat &mask) {
                 if (nx >= 0 && nx < mask.cols && ny >= 0 && ny < mask.rows) {
                     uchar neighborColor = mask.at<uchar>(ny, nx);
                     if (neighborColor == 255) {
-                        occupied = true;
+                        occupiedCenter = true;
                         break;
                     }
                     
                 }
             }
-            if (occupied)  break;               
         }
-        
-        this->occupied = occupied;
-    } else 
-        // If the center pixel is not (0, 0, 0), it is occupied
-        this->occupied = true;
-    cv::imshow("mask", mask);
+    }
+    else
+        occupiedCenter = true;
 
+    if(occupiedArea || occupiedCenter)
+        this->occupied = true;
+    else
+        this->occupied = false;
+    
 }
 
 void BBox::setContour(std::vector<cv::Point> contour) {

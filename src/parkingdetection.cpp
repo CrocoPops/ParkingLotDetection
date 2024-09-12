@@ -646,7 +646,7 @@ std::vector<BBox> ParkingDetection::createBoundingBoxes(cv::Mat frame, const std
             line_connections[nearest_line_idx]++;
 
             cv::Vec4f merged_line = mergeLineSegments(line1, line2);
-            cv::RotatedRect rotatedRect(cv::Point((merged_line[0] + merged_line[2]) / 2, (merged_line[1] + merged_line[3]) / 2),
+            cv::RotatedRect rotatedRect(cv::Point((merged_line[0] + merged_line[2]) / 2 - 10, (merged_line[1] + merged_line[3]) / 2 - 10),
                                         cv::Size(calculateLength(merged_line), distanceBetweenSegments(line1, line2)),
                                         calculateAngle(merged_line));
 
@@ -704,7 +704,7 @@ std::vector<BBox> ParkingDetection::createBoundingBoxes(cv::Mat frame, const std
                              cv::Size(calculateLength(realLine), distanceBetweenSegments(line1, line2)),
                              calculateAngle(realLine));
 
-                        cv::RotatedRect mirroredRect(cv::Point((line[0] + line[2]) / 2 + 20, (line[1] + line[3]) / 2 + 20),  // Put down and right the center of the rectangle 
+                        cv::RotatedRect mirroredRect(cv::Point((line[0] + line[2]) / 2 + 20, (line[1] + line[3]) / 2 + 10),  // Put down and right the center of the rectangle 
                                                      cv::Size(calculateLength(line), distanceBetweenSegments(line1, mirrored_line)), 
                                                      calculateAngle(line));
 
@@ -977,7 +977,7 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     for (BBox &bbox : boundingBoxes)
     {
         bbox.setWidth(bbox.getWidth() * 0.9);
-        bbox.setHeight(bbox.getHeight() * 1.1);
+        bbox.setHeight(bbox.getHeight() * 1.3);
     }
 
     
@@ -1009,7 +1009,7 @@ void ParkingDetection::draw(const cv::Mat &frame, const std::vector<BBox> parkin
     
 }
 
-void ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BBox> parkings) {
+cv::Mat ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BBox> parkings) {
     cv::Mat frame_copy = frame.clone();
     for (const BBox& parking : parkings)
     {
@@ -1021,11 +1021,12 @@ void ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BBox>
             if(parking.isOccupied())
                 color = cv::Scalar(0, 0, 255); // Red
             else
-                color = cv::Scalar(0, 0, 255); // Blue
+                color = cv::Scalar(255, 0, 0); // Blue
             cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], color, 2);
         }
     }
     cv::imshow("Parking classification", frame_copy);
     cv::waitKey(0);
+    return frame_copy;
 }
 

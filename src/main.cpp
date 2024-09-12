@@ -239,20 +239,12 @@ int main(int argc, char** argv) {
     float slope = float(p2.y - p1.y) / float(p2.x - p1.x);
     float q = p1.y - slope * p1.x;
     
-    //std::vector<cv::Mat> real_masks[4];
-    std::vector<std::vector<cv::Mat>> maskImagesObtained;
-    // Initialize the vector only if it doesn't have the correct size
-    maskImagesObtained.resize(parkingImages.size());
-
-    for (int i = 0; i <= 5; i++) {
-    // Make sure to resize the inner vector as well
-    if (maskImagesObtained[i].size() != parkingImages[i].size()) {
-        maskImagesObtained[i].resize(parkingImages[i].size());
-    }
-    }
+    
+    std::vector<std::vector<cv::Mat>> car_segmentation;
     std::vector<std::vector<float>> all_ious;
     //cs.trainBackgroundSubtractor(empty_parkings_aug);
     for(int i = 0; i <= 5; i++) {
+        std::vector<cv::Mat> cars;
         std::vector<float> ious;
         std::cout << "Sequence " << i << ":" << std::endl;
         for(int j = 0; j < parkingImages[i].size(); j++) {
@@ -274,7 +266,8 @@ int main(int argc, char** argv) {
             }
             cv::Mat mask = cs.detectCars(parking, empty_parkings_aug);
             cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
-            maskImagesObtained[i].push_back(mask);
+            cars.push_back(mask);
+            
             // Real mask
             cv::cvtColor(true_mask, true_mask, cv::COLOR_BGR2GRAY);
             true_mask.setTo(255, true_mask != 128);
@@ -295,6 +288,7 @@ int main(int argc, char** argv) {
             std::cout << "IoU: " << iou << std::endl;
             ious.push_back(iou);
         }
+        car_segmentation.push_back(cars);
         all_ious.push_back(ious);
     }
 
@@ -327,7 +321,9 @@ int main(int argc, char** argv) {
     // PARKING DETECTION & CLASSIFICATION OUR MASKS
     // Set as BBoxes the best BBoxes obtained from the previous step
     std::vector<BBox> bboxes = all_detected_bboxes[0];
+    std::vector<std::vector<cv::Mat>> parking_classification;
     for(int i = 0; i <= 5; i++) {
+        std::vector<cv::Mat> temp;
         for(int j = 0; j < parkingImages[i].size(); j++) {
             cv::Mat parking = parkingImages[i][j];
             if (parking.empty()) {
@@ -335,15 +331,15 @@ int main(int argc, char** argv) {
                 return -1;
             }
             
-            if (!maskImagesObtained[i][j].empty()) {
-            for (auto& bbox : bboxes) {
-                bbox.setOccupiedfromObtainedMask(maskImagesObtained[i][j]);
-            }
-            } else {
-                std::cerr << "Mask is empty for i=" << i << ", j=" << j << std::endl;
-            }
-            pd.drawColored(parking, bboxes);
-
+            for (auto& bbox : bboxes) 
+                bbox.setOccupiedfromObtainedMask(car_segmentation[i][j]);
+            temp.push_back(pd.drawColored(parking, bboxes));
+            cv::Mat output = temp[j];
+            cv::Mat colored_mask = cv::Mat::zeros(output.size(), CV_8UC3);
+            colored_mask.setTo(cv::Scalar(0, 0, 255), car_segmentation[i][j] == 255);
+            cv::addWeighted(output, 1, colored_mask, 0.7, 0, output);
+            cv::imshow("Parking", output);
+            cv::waitKey(0);
             // PARKING DETECTION
             //ParkingDetection pd;
             //pd.detect(parking);
@@ -351,6 +347,7 @@ int main(int argc, char** argv) {
             
             cv::destroyAllWindows();
         }
+        parking_classification.push_back(temp);
     }
     // TODO: PARKING SPACES CLASSIFICATION
     // Categories: 0 - Empty Space, 1 - Occupied Space

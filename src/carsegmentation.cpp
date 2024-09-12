@@ -226,7 +226,7 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
     cv::Mat colored_mask = cv::Mat::zeros(frame.size(), CV_8UC3);
     colored_mask.setTo(cv::Scalar(0, 0, 255), final_mask == 255);
     cv::addWeighted(output, 1, colored_mask, 0.7, 0, output);
-
+/*
     cv::imshow("Frame", frame);
     cv::imshow("Threshold", thresh);
     cv::imshow("H Channel", hsv_channels[0]);
@@ -234,7 +234,7 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
     cv::imshow("Refined Mask", refined_mask);
     cv::imshow("Final Mask", final_mask);
     cv::imshow("Output", output);
-    cv::waitKey(0);
+    cv::waitKey(0);*/
     return final_mask;
 }
 
