@@ -121,7 +121,9 @@ int main(int argc, char** argv) {
     
     // PARKING DETECTION & CLASSIFICATION REAL
     
+    ParkingDetection pd;
     std::vector<BBox> real_bboxes;
+    std::vector<std::vector<BBox>> all_detected_bboxes;
     for(int i = 0; i < parkingImages[0].size(); i++) {
         cv::Mat parking = parkingImages[0][i];
         if (parking.empty()) {
@@ -132,47 +134,11 @@ int main(int argc, char** argv) {
         // Show real image bounding box
         Mat realBBoxes = parking.clone();
         real_bboxes = parseParkingXML(bboxesPaths[0][i]);
-        
-        /*
-        for (auto& bbox : real_bboxes) {
-            // bbox.toString();
-            //bbox.setOccupied(parkingMasks[3][i]);
-            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied(), false);
-        }
-        imshow("Frame", parking);
-        imshow("Real bounding boxes", realBBoxes);
-        
-         */
-
-       // PARKING DETECTION
-        ParkingDetection pd;
 
         std::vector<BBox> detected_bboxes = pd.detect(parking);
+        all_detected_bboxes.push_back(detected_bboxes);
         pd.draw(parking, detected_bboxes);
-
-        cv::Mat frame_copy = parking.clone();
-        for (const BBox &parking : detected_bboxes) {
-            cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
-            cv::Point2f vertices[4];
-            rotatedRect.points(vertices);
-            for (int i = 0; i < 4; i++)
-            {
-                cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 0), 2);
-            }
-        }
-
-        for (const BBox &parking : real_bboxes) {
-            cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
-            cv::Point2f vertices[4];
-            rotatedRect.points(vertices);
-            for (int i = 0; i < 4; i++)
-            {
-                cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], cv::Scalar(255, 0, 0), 2);
-            }
-        }
-        imshow("Real bounding boxes with our mask", frame_copy);
-        cv::waitKey(0);
-
+        
         // mAP
         std::cout << "METRICS: " << std::endl;
         std::cout << "mAP: " << computeMAP(detected_bboxes, real_bboxes, 0.5) << std::endl;
@@ -274,7 +240,16 @@ int main(int argc, char** argv) {
     float q = p1.y - slope * p1.x;
     
     //std::vector<cv::Mat> real_masks[4];
-    std::vector<cv::Mat> maskImagesObtained;
+    std::vector<std::vector<cv::Mat>> maskImagesObtained;
+    // Initialize the vector only if it doesn't have the correct size
+    maskImagesObtained.resize(parkingImages.size());
+
+    for (int i = 0; i <= 5; i++) {
+    // Make sure to resize the inner vector as well
+    if (maskImagesObtained[i].size() != parkingImages[i].size()) {
+        maskImagesObtained[i].resize(parkingImages[i].size());
+    }
+    }
     std::vector<std::vector<float>> all_ious;
     //cs.trainBackgroundSubtractor(empty_parkings_aug);
     for(int i = 0; i <= 5; i++) {
@@ -299,7 +274,7 @@ int main(int argc, char** argv) {
             }
             cv::Mat mask = cs.detectCars(parking, empty_parkings_aug);
             cv::Mat true_mask = cs.detectCarsTrue(parking, parking_mask);
-            maskImagesObtained.push_back(mask);
+            maskImagesObtained[i].push_back(mask);
             // Real mask
             cv::cvtColor(true_mask, true_mask, cv::COLOR_BGR2GRAY);
             true_mask.setTo(255, true_mask != 128);
@@ -344,34 +319,39 @@ int main(int argc, char** argv) {
     mean_iou /= ious.size();
     std::cout << "\nmIoU: " << mean_iou << std::endl;*/
 
-    // PARKING DETECTION & CLASSIFICATION OUR MASKS
-    /*for(int i = 0; i < parkingImages[0].size(); i++) {
-        cv::Mat parking = parkingImages[0][i];
-        if (parking.empty()) {
-            std::cerr << "Invalid input" << std::endl;
-            return -1;
-        }
-
-        // Show real image bounding box with our mask
-        Mat realBBoxes = parking.clone();
-        vector<BBox> bboxes = parseParkingXML(bboxesPaths[0][i]);
-        
-        for (auto& bbox : bboxes) {
-            bbox.toString();
-            bbox.setOccupiedfromObtainedMask(maskImagesObtained[i]);
-            drawRotatedRectangle(realBBoxes, bbox.getRotatedRect(), bbox.isOccupied());
-        }
-        imshow("Frame", parking);
-        imshow("Real bounding boxes with our mask", realBBoxes);
-        // PARKING DETECTION
-        //ParkingDetection pd;
-        //pd.detect(parking);
-        //pd.draw(parking);
-        
-        waitKey(0);
-        cv::destroyAllWindows();
-    }*/
     
+    
+    
+    
+    
+    // PARKING DETECTION & CLASSIFICATION OUR MASKS
+    // Set as BBoxes the best BBoxes obtained from the previous step
+    std::vector<BBox> bboxes = all_detected_bboxes[0];
+    for(int i = 0; i <= 5; i++) {
+        for(int j = 0; j < parkingImages[i].size(); j++) {
+            cv::Mat parking = parkingImages[i][j];
+            if (parking.empty()) {
+                std::cerr << "Invalid input" << std::endl;
+                return -1;
+            }
+            
+            if (!maskImagesObtained[i][j].empty()) {
+            for (auto& bbox : bboxes) {
+                bbox.setOccupiedfromObtainedMask(maskImagesObtained[i][j]);
+            }
+            } else {
+                std::cerr << "Mask is empty for i=" << i << ", j=" << j << std::endl;
+            }
+            pd.drawColored(parking, bboxes);
+
+            // PARKING DETECTION
+            //ParkingDetection pd;
+            //pd.detect(parking);
+            //pd.draw(parking);
+            
+            cv::destroyAllWindows();
+        }
+    }
     // TODO: PARKING SPACES CLASSIFICATION
     // Categories: 0 - Empty Space, 1 - Occupied Space
 

@@ -3,192 +3,19 @@
 
 ParkingDetection::ParkingDetection(std::vector<BBox> parkings) : parkings(parkings) {}
 
-/*
-Remove the isolated pixels that are far from the rest of the pixels
-PARAM:
-    img: input image
-    neighbrhoodSize: size of the neighborhood to consider (rectangular)
-    minPixels: minimum number of white pixels in the neighborhood to keep the pixel white
-*/
-
-void removeIsolatedPixels(cv::Mat &img, int neighborhoodSize, int minPixels) {
-    if (img.type() != CV_8UC1) {
-        std::cerr << "Image must be binary (CV_8UC1)" << std::endl;
-        return;
-    }
-        
-    // Ensure the neighborhood size is odd to have a center pixel
-    if (neighborhoodSize % 2 == 0)
-        neighborhoodSize += 1;
-    
-    
-    // Create a copy of the original image to modify
-    cv::Mat output = img.clone();
-    
-    int offset = neighborhoodSize / 2;
-
-    for (int y = offset; y < img.rows - offset; y++) {
-        for (int x = offset; x < img.cols - offset; x++) {
-            if (img.at<uchar>(y, x) == 255) { // Only consider white pixels
-                // Define the neighborhood
-                cv::Rect neighborhood(x - offset, y - offset, neighborhoodSize, neighborhoodSize);
-                cv::Mat roi = img(neighborhood);
-
-                // Count the number of white pixels in the neighborhood
-                int whiteCount = cv::countNonZero(roi);
-
-                // If the number of white pixels is less than the threshold, set the pixel to black
-                if (whiteCount < minPixels) {
-                    output.at<uchar>(y, x) = 0;
-                }
-            }
-        }
-    }
-
-    img = output;
-}
-
-/* 
-Based on the region's area, delete the region if the area is between minSize and maxSize
-PARAM:
-    img: input image
-    minSize: minimum area of the region to keep
-    maxSize: maximum area of the region to keep
-*/
-
-void deleteAreasInRange(cv::Mat &img, int minSize, int maxSize) {
-    // Ensure the image is binary
-    if (img.type() != CV_8UC1) {
-        std::cerr << "Image must be binary (CV_8UC1)" << std::endl;
-        return;
-    }
-
-    // Find connected components
-    cv::Mat labels, stats, centroids;
-    int numComponents = cv::connectedComponentsWithStats(img, labels, stats, centroids);
-
-    // Iterate over each connected component
-    for (int i = 1; i < numComponents; ++i) { // Start from 1 to skip the background
-        int area = stats.at<int>(i, cv::CC_STAT_AREA);
-
-        // If the area is between minSize and maxSize, delete it
-        if (area >= minSize && area <= maxSize) {
-            for (int y = 0; y < labels.rows; ++y) {
-                for (int x = 0; x < labels.cols; ++x) {
-                    if (labels.at<int>(y, x) == i) {
-                        img.at<uchar>(y, x) = 0;
-                    }
-                }
-            }
-        }
-    }
-}
-
-/*
-std::vector<cv::Vec4i> closest_neighbor_line(cv::Mat corners) {
-    std::vector<cv::Vec4i> lines;
-    
-    // Iterate over all pixels in the image
-    for(int i = 0; i < corners.rows; i++) {
-        for(int j = 0; j < corners.cols; j++) {
-            if(corners.at<uchar>(i, j) == 255) {
-                // Found a white pixel, now search for the closest neighbor
-                bool found = false;
-                int radius = 1;
-                
-                while(!found) {
-                    // Expand the search radius until a point is found
-                    for(int k = i - radius; k <= i + radius; k++) {
-                        for(int l = j - radius; l <= j + radius; l++) {
-                            if(k >= 0 && k < corners.rows && l >= 0 && l < corners.cols) {
-                                if(corners.at<uchar>(k, l) == 255 && !(k == i && l == j)) {
-                                    // Found a different white pixel, create a line
-                                    lines.push_back(cv::Vec4i(j, i, l, k));
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if(found) break;
-                    }
-                    radius++;
-                }
-            }
-        }
-    }
-    return lines;
-}
-
-*/
-/*
-Set all the strong pixels and the weak pixels near the strong ones to 255; the others to 0
-PARAM:
-    img: input image
-    neighborhoodSize: size of the neighborhood to consider (rectangular)
-    minNumStrongPixels: minimum number of strong pixels in the neighborhood to keep the pixel white
-    threshold: threshold to consider a pixel as strong
-*/
-
-void enhanceWeakPointsNearStrongOnes(cv:: Mat &img, int neighborhoodSize, int minNumStrongPixels, int threshold) {
-    if (img.type() != CV_8UC1) {
-        std::cerr << "Image must be binary (CV_8UC1)" << std::endl;
-        return;
-    }
-
-
-    // Check if the threshold is valid
-    if (threshold < 0 || threshold > 255) {
-        std::cerr << "Threshold must be between 0 and 255" << std::endl;
-        return;
-    }
-
-    // Ensure the neighborhood size is odd to have a center pixel
-    if (neighborhoodSize % 2 == 0)
-        neighborhoodSize += 1;
-    
-       
-    
-    cv::Mat output = cv::Mat::zeros(img.size(), CV_8UC1);
-
-    int offset = neighborhoodSize / 2;
-
-    for (int y = 0; y < img.rows; y++) {
-        for (int x = 0; x < img.cols; x++) {
-            if (img.at<uchar>(y, x) != 0) { 
-                int strongCount = 0;
-                for(int i = -offset; i <= offset; i++) {
-                    for(int j = -offset; j <= offset; j++) {
-                        if (i == 0 && j == 0) continue;
-                        if (y + i >= 0 && y + i < img.rows && x + j >= 0 && x + j < img.cols) {
-                            if (img.at<uchar>(y + i, x + j) >= threshold)
-                                strongCount++;
-                        }
-                    }
-                }
-                if (strongCount >= minNumStrongPixels || img.at<uchar>(y, x) >= threshold) 
-                    output.at<uchar>(y, x) = 255;
-                else 
-                    output.at<uchar>(y, x) = 0;
-            }
-        }
-    }
-    img = output;
-}
-
-
 
 // Utility function to compute the dot product of two vectors
-double dotProduct(const cv::Point2f& a, const cv::Point2f& b) {
+double ParkingDetection::dotProduct(const cv::Point2f& a, const cv::Point2f& b) {
     return a.x * b.x + a.y * b.y;
 }
 
 // Utility function to compute the distance between two points
-double distance(const cv::Point2f& a, const cv::Point2f& b) {
+double ParkingDetection::distance(const cv::Point2f& a, const cv::Point2f& b) {
     return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
 }
 
 // Utility function to project a point onto a line segment and clamp it to segment bounds
-cv::Point2f projectPointOntoLineSegment(const cv::Point2f& p, const cv::Point2f& a, const cv::Point2f& b) {
+cv::Point2f ParkingDetection::projectPointOntoLineSegment(const cv::Point2f& p, const cv::Point2f& a, const cv::Point2f& b) {
     cv::Point2f ab = b - a;
     double t = dotProduct(p - a, ab) / dotProduct(ab, ab);
     t = std::max(0.0, std::min(1.0, t));
@@ -201,7 +28,7 @@ PARAM:
     line1: first line
     line2: second line
 */
-double calculateDistance(const cv::Vec4i& line1, const cv::Vec4i& line2) {
+double ParkingDetection::calculateDistance(const cv::Vec4i& line1, const cv::Vec4i& line2) {
     cv::Point2f p1(line1[0], line1[1]);
     cv::Point2f p2(line1[2], line1[3]);
     cv::Point2f p3(line2[0], line2[1]);
@@ -220,50 +47,18 @@ double calculateDistance(const cv::Vec4i& line1, const cv::Vec4i& line2) {
     return minDist;
 }
 
-double calculateLength(const cv::Vec4f& line) {
+/*
+Calculate the length of a line
+PARAM:
+    line: input line
+*/
+
+double ParkingDetection::calculateLength(const cv::Vec4f& line) {
     cv::Point2f p1(line[0], line[1]);
     cv::Point2f p2(line[2], line[3]);
 
     return cv::norm(p1 - p2);
 }
-
-
-/*
-Merge multiple lines into a single line
-PARAM:
-    lines: input lines
-*/
-
-
-/*
-
-*/
-
-
-/* 
-Sort the line's vertices based on their position in the image
-PARAM:
-    lines: input lines
-*/
-
-std::vector<cv::Vec4i> sortLinesVertices(const std::vector<cv::Vec4i> lines) {
-    std::vector<cv::Vec4i> sortedLines;
-
-    for (const auto& line : lines) {
-        cv::Point p1(line[0], line[1]);
-        cv::Point p2(line[2], line[3]);
-
-        // Sort the points based on their x-coordinate
-        if (p1.x < p2.x) {
-            sortedLines.push_back(cv::Vec4i(p1.x, p1.y, p2.x, p2.y));
-        } else {
-            sortedLines.push_back(cv::Vec4i(p2.x, p2.y, p1.x, p1.y));
-        }
-    }
-
-    return sortedLines;
-}
-
 
 /*
 Delete short lines
@@ -272,7 +67,7 @@ PARAM:
     minLength: minimum length of the line to keep
 */
 
-std::vector<cv::Vec4f> deleteShortLines(const std::vector<cv::Vec4f> lines, double minLength) {
+std::vector<cv::Vec4f> ParkingDetection::deleteShortLines(const std::vector<cv::Vec4f> lines, double minLength) {
     std::vector<cv::Vec4f> result;
 
     for (const auto& line : lines) {
@@ -293,7 +88,7 @@ Compute the angle of a line
 PARAM:
     line: input line
 */
-double calculateAngle(const cv::Vec4f& line) {
+double ParkingDetection::calculateAngle(const cv::Vec4f& line) {
     double dy = line[3] - line[1];
     double dx = line[2] - line[0];
     return std::atan2(dy, dx) * 180.0 / CV_PI; // Angle in degrees
@@ -302,11 +97,11 @@ double calculateAngle(const cv::Vec4f& line) {
 /*
 Find K mean values of similar lines by angle and filter them
 PARAM:
-lines: set of input lines
-K = # groups of lines by angle
-angleOffset = offset respect the mean for considering a line in a group
+    lines: set of input lines
+    K: # groups of lines by angle
+    angleOffset: offset respect the mean for considering a line in a group
 */
-std::vector<cv::Vec4f> filterLinesByKMeans(const std::vector<cv::Vec4f>& lines, int K, double angleOffset) {
+std::vector<cv::Vec4f> ParkingDetection::filterLinesByKMeans(const std::vector<cv::Vec4f>& lines, int K, double angleOffset) {
     if (lines.empty() || K <= 0) {
         return {}; 
     }
@@ -337,7 +132,13 @@ std::vector<cv::Vec4f> filterLinesByKMeans(const std::vector<cv::Vec4f>& lines, 
     return filteredLines;
 }
 
-cv::Vec4f mergeLines(const std::vector<cv::Vec4f>& lines) {
+/*
+Merge two lines into a single line
+PARAM:
+    lines: vector containing the two lines to be merged
+*/
+
+cv::Vec4f ParkingDetection::mergeLines(const std::vector<cv::Vec4f>& lines) {
      if (lines.empty()) {
         return cv::Vec4f(); // Return an empty line if there are no lines in the input
     }
@@ -390,7 +191,16 @@ cv::Vec4f mergeLines(const std::vector<cv::Vec4f>& lines) {
     return cv::Vec4f(p1_max.x, p1_max.y, p2_max.x, p2_max.y);
 }
 
-std::vector<cv::Vec4f> unifySimilarLines(const std::vector<cv::Vec4f>& lines, double distanceThreshold, double angleThreshold, double lengthThreshold) {
+/*
+Unify similar lines by distance, angle, and length
+PARAM:
+    lines: input lines
+    distanceThreshold: maximum distance between two lines to be considered similar
+    angleThreshold: maximum angle difference between two lines to be considered similar
+    lengthThreshold: maximum length difference between two lines to be considered similar
+*/
+
+std::vector<cv::Vec4f> ParkingDetection::unifySimilarLines(const std::vector<cv::Vec4f>& lines, double distanceThreshold, double angleThreshold, double lengthThreshold) {
     std::vector<cv::Vec4f> result;
     std::vector<bool> merged(lines.size(), false);
 
@@ -422,8 +232,14 @@ std::vector<cv::Vec4f> unifySimilarLines(const std::vector<cv::Vec4f>& lines, do
     return result;
 }
 
-cv::Point2f closestPointOnSegment(const cv::Point2f &P, const cv::Vec4f &segment)
-{
+/*
+Find the closest neighbor point of each line
+PARAM:
+    P: input point
+    segments: input segments
+*/
+
+cv::Point2f ParkingDetection::closestPointOnSegment(const cv::Point2f &P, const cv::Vec4f &segment) {
     cv::Point2f A(segment[0], segment[1]);
     cv::Point2f B(segment[2], segment[3]);
     cv::Point2f AP = P - A;
@@ -435,8 +251,15 @@ cv::Point2f closestPointOnSegment(const cv::Point2f &P, const cv::Vec4f &segment
     return A + AB * t;
 }
 
-float distanceBetweenSegments(const cv::Vec4f &seg1, const cv::Vec4f &seg2)
-{
+
+/*
+Compute the distance between two segments
+PARAM:
+    seg1: first segment
+    seg2: second segment
+*/
+
+float ParkingDetection::distanceBetweenSegments(const cv::Vec4f &seg1, const cv::Vec4f &seg2) {
     cv::Point2f A(seg1[0], seg1[1]);
     cv::Point2f B(seg1[2], seg1[3]);
     cv::Point2f C(seg2[0], seg2[1]);
@@ -457,8 +280,15 @@ float distanceBetweenSegments(const cv::Vec4f &seg1, const cv::Vec4f &seg2)
     return std::min({d1, d2, d3, d4});
 }
 
-float distanceBetweenSegments2(const cv::Vec4f &seg1, const cv::Vec4f &seg2)
-{
+
+/*
+Compute the distance between two segments, using the Euclidean distance between the midpoints
+PARAM:
+    seg1: first segment
+    seg2: second segment
+*/
+
+float ParkingDetection::distanceBetweenSegments2(const cv::Vec4f &seg1, const cv::Vec4f &seg2) {
     cv::Point2f mid1((seg1[0] + seg1[2]) / 2, (seg1[1] + seg1[3]) / 2); // Midpoint of seg1
     cv::Point2f mid2((seg2[0] + seg2[2]) / 2, (seg2[1] + seg2[3]) / 2); // Midpoint of seg2
 
@@ -469,415 +299,33 @@ float distanceBetweenSegments2(const cv::Vec4f &seg1, const cv::Vec4f &seg2)
 }
 
 
-double calculateLineAngle(const cv::Vec4f &line)
-{
-    return std::atan2(line[3] - line[1], line[2] - line[0]) * 180.0 / CV_PI;
-}
-
 
 /*
-void ParkingDetection::detect(cv::Mat &frame) {
-    cv::Mat frame_HSV;
-    cv::cvtColor(frame, frame_HSV, cv::COLOR_BGR2HSV);
-    
-    // Divide the frame into its components
-    cv::Mat frame_H, frame_S, frame_V;
-    std::vector<cv::Mat> channels;
-    cv::split(frame_HSV, channels);
-    frame_H = channels[0];
-    frame_S = channels[1];
-    frame_V = channels[2];
-
-    
-    //Threshold on V
-    cv::Mat frame_V_TH;
-    cv::adaptiveThreshold(frame_V, frame_V_TH, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY_INV, 5, 7);
-    cv::imshow("Threshold V", frame_V_TH);
-
-
-
-
-    // Apply Laplacian
-    cv::Mat parking_laplacian;
-    cv::Laplacian(frame_V_TH, parking_laplacian, CV_64F, 3, 1, 0, cv::BORDER_DEFAULT);
-    cv::convertScaleAbs(parking_laplacian, parking_laplacian);
-    cv::threshold(parking_laplacian, parking_laplacian, 100, 255, cv::THRESH_BINARY);
-    
-    // Closing
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-    cv::morphologyEx(parking_laplacian, parking_laplacian, cv::MORPH_CLOSE, element);
-    
-
-
-    //Hough Lines Transform `
-    std::vector<cv::Vec4i> lines;
-    cv::HoughLinesP(parking_laplacian, lines, 1, CV_PI/180, 50, 6, 10);
-
-    // Draw the lines
-    cv::Mat line_image = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for (const auto& line : lines)
-        cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
-
-    cv::imshow("Lines", line_image);
-    
-    // Threshold on H and S for rexternal objects
-    cv::Mat frame_H_TH, frame_S_TH;
-    cv::threshold(frame_H, frame_H_TH, 30, 255, cv::THRESH_BINARY_INV);
-    cv::threshold(frame_S, frame_S_TH, 150, 255, cv::THRESH_BINARY_INV);
-    cv::imshow("Threshold H", frame_H_TH);
-    cv::imshow("Threshold S", frame_S_TH);
-
-    // bitwise and 
-    cv::Mat bitwise_and;
-    cv::bitwise_and(frame_H_TH, frame_S_TH, bitwise_and);
-    cv::bitwise_and(line_image, bitwise_and, bitwise_and);
-    cv::imshow("Bitwise and", bitwise_and);
-
-    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
-    cv::dilate(bitwise_and, bitwise_and, element);
-
-
-    // Hough Lines Transform on `bitwise_and`
-    lines.clear();
-    cv::HoughLinesP(bitwise_and, lines, 1, CV_PI/180, 50, 6, 10);
-
-    // Draw the lines 
-    line_image = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for (const auto& line : lines)
-        cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
-
-    cv::imshow("Lines", line_image);
-
-    //MSER
-    cv::Ptr<cv::MSER> mser = cv::MSER::create();
-    mser->setMinArea(40);
-    mser->setMaxArea(600);
-    std::vector<std::vector<cv::Point>> regions;
-    std::vector<cv::Rect> bboxes;
-    mser->detectRegions(frame_V, regions, bboxes);
-    cv::Mat frame_mser = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for (const auto& region : regions) {
-        for (const auto& point : region) {
-            frame_mser.at<uchar>(point) = 255;
-        }
-    }
-    cv::imshow("MSER", frame_mser);
-
-    // Filter MSER removing isolated pixels
-    removeIsolatedPixels(frame_mser, 200, 400);
-    cv::imshow("Filtered MSER", frame_mser);
-
-    // dilate the filtered mask
-    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(70, 70));
-    cv::dilate(frame_mser, frame_mser, element);
-    cv::imshow("Dilated MSER", frame_mser);
-
-    // Delete weak areas
-    deleteAreasInRange(frame_mser, 5000, 100000);
-    cv::imshow("Filtered MSER 2", frame_mser);
-
-    // Bitwise and for having a more detailed mask without external objects
-    cv::bitwise_and(frame_mser, line_image, frame_mser);
-    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
-    cv::dilate(frame_mser, frame_mser, element);
-    cv::imshow("Bitwise and 2", frame_mser);
-
-
-    // Find corners using as mask the filtered MSER
-    std::vector<cv::Point2f> corners;
-    cv::goodFeaturesToTrack(frame_V, corners, 500, 0.0001, 10, frame_mser, 1);
-    // Create an empty matrix to store the corner points
-    cv::Mat frame_corner = cv::Mat::zeros(frame.size(), CV_8UC1);
-
-    // Mark each corner with a single pixel
-    for (size_t i = 0; i < corners.size(); i++) {
-        // Convert floating-point corner coordinates to integer pixel coordinates
-        cv::Point corner_point = cv::Point(cvRound(corners[i].x), cvRound(corners[i].y));
-
-        // Set the pixel value at the corner position to 255
-        frame_corner.at<uchar>(corner_point.y, corner_point.x) = 255;
-    }
-
-
-
-    std::vector<cv::Vec4i> lines_filtered;
-    lines_filtered = closest_neighbor_line(frame_corner);
-    
-
-
-    // Draw the lines
-    line_image = frame.clone();
-    for (const auto& line : lines_filtered)
-        cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
-
-    cv::imshow("Lines filtered", line_image);
-
-
-    // Display the results
-    cv::imshow("Corners", frame_corner);
-    
-
-
-   
-    cv::waitKey(0);
-}
+Check if two lines are parallel and close
+PARAM:
+    line1: first line
+    line2: second line
+    angleThreshold: maximum angle difference to consider the lines parallel
+    distanceThreshold: maximum distance between the lines to consider them close
 */
 
-
-
-/*
-void ParkingDetection::detect(cv::Mat &frame) {
-
-    // Convert the frame to HSV color space
-    cv::Mat frame_hsv;
-    cv::cvtColor(frame, frame_hsv, cv::COLOR_BGR2HSV);
-
-    cv::Mat green_mask;
-    std::vector<cv::Mat> hsv_channels;
-    cv::split(frame_hsv, hsv_channels);
-    cv::threshold(hsv_channels[1], green_mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-    
-    cv::Mat frame_gray, frame_blurred, sub;
-    cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
-    cv::GaussianBlur(frame_gray, frame_blurred, cv::Size(15, 15), 0);
-    cv::subtract(frame_gray, frame_blurred, sub);
-
-    // Delete parking lines from green_mask
-    cv::Mat element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
-    cv::erode(green_mask, green_mask, element);
-
-    // Dilate the green mask
-    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(30, 30));
-    cv::dilate(green_mask, green_mask, element);
-
-
-    cv::bitwise_not(green_mask, green_mask);
-
-
-    
-    // Delete green mask from sub
-    cv::bitwise_and(sub, green_mask, sub);
-    cv::imshow("Sub", sub);
-
-    // Maintain only the points over a specific threshold
-    int threshold = 10;
-    for (int i = 0; i < sub.rows; i++) {
-        for (int j = 0; j < sub.cols; j++) {
-            if (sub.at<uchar>(i, j) < threshold) {
-                sub.at<uchar>(i, j) = 0;
-            }
-        }
-    }
-
-    
-    cv::imshow("Sub threshold", sub);
-    
-    // Enhance weak points near strong ones
-    enhanceWeakPointsNearStrongOnes(sub, 80, 10, 30);
-
-    cv::imshow("Frame gray", frame_gray);
-    cv::imshow("Green mask", green_mask);
-    cv::imshow("Sub enhanced", sub);
-
-    
-    // MSER
-    cv::Ptr<cv::MSER> mser = cv::MSER::create();
-    mser->setMinArea(50);
-    std::vector<std::vector<cv::Point>> regions;
-    std::vector<cv::Rect> bboxes;
-    mser->detectRegions(sub, regions, bboxes);
-    cv::Mat frame_mser = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for (const auto& region : regions) {
-        for (const auto& point : region) {
-            frame_mser.at<uchar>(point) = 255;
-        }
-    }
-    
-    cv::imshow("MSER", frame_mser);
-
-    
-    // Filter MSER removing isolated pixels
-    removeIsolatedPixels(frame_mser, 200, 400);
-    element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-    cv::morphologyEx(frame_mser, frame_mser, cv::MORPH_CLOSE, element);
-    deleteAreasInRange(frame_mser, 2000, 20000);
-    deleteAreasInRange(frame_mser, 20, 50);
-
-    cv::imshow("Filtered MSER", frame_mser);
-  
-    // Hough Lines Transform
-    std::vector<cv::Vec4i> lines;
-    cv::HoughLinesP(frame_mser, lines, 1, CV_PI/180, 30, 15, 10);
-    
-    // Draw the lines
-    cv::Mat line_image = frame.clone();
-    cv::Mat filtered_line_image = frame.clone();
-
-    
-    // Sort the line's vertices based on their position in the image
-    std::vector<cv::Vec4i> sortedLines = sortLinesVertices(lines);
-
-
-    // Angle "K-means" clustering
-    std::vector<cv::Vec4i> filtered_lines = filterLinesByKMeans(sortedLines, 4, 15);
-
-
-    for (const auto& line : lines)
-        cv::line(line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
-
-
-    for (const auto& line : filtered_lines)
-        cv::line(filtered_line_image, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
-
-    cv::imshow("Lines", line_image);
-    cv::imshow("Filtered lines", filtered_line_image);
-
-   
-    // Line Segment Detector
-    cv::Ptr<cv::LineSegmentDetector> lsd = cv::createLineSegmentDetector(cv::LSD_REFINE_STD, 
-    0.7, // scale 
-    0.4, // sigma_scale 
-    5.0, // quant
-    20, // ang_th
-    0.4, // log_eps
-    0.8, // density_th
-    1024 // n_bins
-    );
-
-   
-    std::vector<cv::Vec4i> lsd_lines;
-    lsd->detect(frame_gray, lsd_lines);
-
-    cv::Mat line_image_lsd = cv::Mat::zeros(frame.size(), CV_8UC1);
-    for (int i = 0; i < lsd_lines.size(); i++) {
-        cv::Vec4i line = lsd_lines[i];
-        cv::line(line_image_lsd, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(255), 1, cv::LINE_AA);
-    }
-    cv::imshow("LSD", line_image_lsd);
-
-
-    cv::Mat filtered_line_image_lsd = frame.clone();
-    // Sort the line's vertices based on their position in the image
-    std::vector<cv::Vec4i> sortedLines_lsd = sortLinesVertices(lsd_lines);
-    
-    // Filter the lines based on the angle
-    std::vector<cv::Vec4i> filtered_lines_lsd = filterLinesByKMeans(sortedLines_lsd, 4, 15);
-  
-  
-
-    for (const auto& line : filtered_lines_lsd)
-        cv::line(filtered_line_image_lsd, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
-
-    cv::imshow("Filtered lines LSD", filtered_line_image_lsd);
-
-
-    // Unify the lines of filtered_lines and filtered_lines_lsd
-    std::vector<cv::Vec4i> unifiedLines;
-    unifiedLines.insert(unifiedLines.end(), filtered_lines.begin(), filtered_lines.end());
-    unifiedLines.insert(unifiedLines.end(), filtered_lines_lsd.begin(), filtered_lines_lsd.end());
-
-    
-    // Delete short lines
-    double minLength = 17;
-    unifiedLines = deleteShortLines(unifiedLines, minLength);
-
-    // Angle "K-means" clustering
-    unifiedLines = filterLinesByKMeans(unifiedLines, 4, 15.0);
-    
-
-    // Draw the unified lines
-    cv::Mat unifiedImg = frame.clone();
-
-    for (const auto& line : unifiedLines) {
-        cv::line(unifiedImg, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 0, 255), 2, cv::LINE_AA);
-    }
-
-    
-    imshow("Unified Lines  ", unifiedImg);
-
-    
-    
-    // Unify the similar lines
-    cv::Mat img = frame.clone();
-    double distanceThreshold = 20; // Distance threshold to consider lines close
-    double angleThreshold = 15.0;    // Angle threshold to consider lines similar (in degrees)
-
-    unifiedLines = unifySimilarLines(unifiedLines, distanceThreshold, angleThreshold);
-
-    // Draw the unified lines
-    for (const auto& line : unifiedLines) {
-        cv::line(img, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
-    }
-
-
-    imshow("Unified Lines", img);
-
-
-    
-    // Filter the lines based on the distance between them
-    
-    cv::Mat bounding_box = frame.clone();
-    
-    int minDistanceThreshold = 15;
-    int maxDistanceThreshold = 80;
-    
-    for (int i = 0; i < unifiedLines.size(); i++) {
-        cv::Vec4i nearest_line;
-        double min_distance = DBL_MAX; // Initialize with a large value
-
-        for (int j = 0; j < unifiedLines.size(); j++) {
-            if (i == j) continue; // Skip the same line
-
-            double distance = calculateDistance(unifiedLines[i], unifiedLines[j]);
-
-            // Find the nearest line pair that has a distance greater than minDistanceThreshold
-            if (distance > minDistanceThreshold && distance < maxDistanceThreshold && distance < min_distance) {
-                min_distance = distance;
-                nearest_line = unifiedLines[j];
-            }
-        }
-
-        // If a nearest line is found, draw the bounding box
-        if (min_distance < DBL_MAX) {
-            cv::Vec4i line1 = unifiedLines[i];
-            cv::Vec4i line2 = nearest_line;
-
-            // Calculate the four corners of the rectangle
-            cv::Point top_left(line1[0], line1[1]);
-            cv::Point top_right(line1[2], line1[3]);
-            cv::Point bottom_left(line2[0], line2[1]);
-            cv::Point bottom_right(line2[2], line2[3]);
-
-            // Draw the rectangle using the corners
-            cv::line(frame, top_left, top_right, cv::Scalar(0, 255, 0), 2);
-            cv::line(frame, top_right, bottom_right, cv::Scalar(0, 255, 0), 2);
-            cv::line(frame, bottom_right, bottom_left, cv::Scalar(0, 255, 0), 2);
-            cv::line(frame, bottom_left, top_left, cv::Scalar(0, 255, 0), 2);
-        }
-    }
-
-    cv::imshow("Bounding box", frame);
-
-    cv::waitKey(0);
-}
-*/
-
-
-bool areParallelAndClose(const cv::Vec4f &line1, const cv::Vec4f &line2, double angleThreshold, double distanceThreshold, bool mergeVertex = false)
-{
-    double angle1 = calculateLineAngle(line1);
-    double angle2 = calculateLineAngle(line2);
+bool ParkingDetection::areParallelAndClose(const cv::Vec4f &line1, const cv::Vec4f &line2, double angleThreshold, double distanceThreshold) {
+    double angle1 = calculateAngle(line1);
+    double angle2 = calculateAngle(line2);
     double vertexDistance = distanceBetweenSegments(line1, line2);
 
     return std::fabs(angle1 - angle2) < angleThreshold && vertexDistance < distanceThreshold;
 }
 
 
+/*
+Merge two line segments into a single line segment
+PARAM:
+    line_i: first line segment
+    line_j: second line segment
+*/
 
-
-
-cv::Vec4f mergeLineSegments(const cv::Vec4f &line_i, const cv::Vec4f &line_j)
-{
+cv::Vec4f ParkingDetection::mergeLineSegments(const cv::Vec4f &line_i, const cv::Vec4f &line_j) {
     // Calculate the lengths of the lines
     double line_i_length = std::hypot(line_i[2] - line_i[0], line_i[3] - line_i[1]);
     double line_j_length = std::hypot(line_j[2] - line_j[0], line_j[3] - line_j[1]);
@@ -930,11 +378,15 @@ cv::Vec4f mergeLineSegments(const cv::Vec4f &line_i, const cv::Vec4f &line_j)
     return cv::Vec4f(start_x, start_y, end_x, end_y);
 }
 
+/*
+Merge a cluster of line segments into a single line segment
+PARAM:
+    cluster: vector of line segments to merge
+*/
 
-cv::Vec4f mergeLineCluster(const std::vector<cv::Vec4f> &cluster)
-{
+cv::Vec4f ParkingDetection::mergeLineCluster(const std::vector<cv::Vec4f> &cluster) {
     cv::Vec4f merged = cluster[0];
-    for (size_t i = 1; i < cluster.size(); i++)
+    for (int i = 1; i < cluster.size(); i++)
     {
         merged = mergeLineSegments(merged, cluster[i]);
     }
@@ -943,9 +395,16 @@ cv::Vec4f mergeLineCluster(const std::vector<cv::Vec4f> &cluster)
 }
 
 
+/*
+Divide long lines into two shorter lines with a hole in the middle
+PARAM:
+    lines: input lines
+    max_length: maximum length of the line
+    offset: distance between the two smaller lines
+*/
 
-std::vector<cv::Vec4f> divideLongLines(const std::vector<cv::Vec4f> &lines, double max_length, double offset)
-{
+
+std::vector<cv::Vec4f> ParkingDetection::divideLongLines(const std::vector<cv::Vec4f> &lines, double max_length, double offset) {
      std::vector<cv::Vec4f> dividedLines;
 
     for (const auto &line : lines) {
@@ -980,8 +439,14 @@ std::vector<cv::Vec4f> divideLongLines(const std::vector<cv::Vec4f> &lines, doub
     return dividedLines;
 }
 
+/*
+Compare two lines based on their starting points
+PARAM:
+    line1: first line
+    line2: second line
+*/
 
-bool compareLines(const cv::Vec4f& line1, const cv::Vec4f& line2) {
+bool ParkingDetection::compareLines(const cv::Vec4f& line1, const cv::Vec4f& line2) {
     // Extract starting points
     cv::Point2f start1(line1[0], line1[1]);
     cv::Point2f start2(line2[0], line2[1]);
@@ -992,14 +457,27 @@ bool compareLines(const cv::Vec4f& line1, const cv::Vec4f& line2) {
     return start1.x < start2.x;
 }
 
-std::vector<cv::Vec4f> sortLines(const std::vector<cv::Vec4f>& lines) {
+/*
+Sort lines based on their starting points
+PARAM:
+    lines: input lines
+*/
+
+std::vector<cv::Vec4f> ParkingDetection::sortLines(const std::vector<cv::Vec4f>& lines) {
     std::vector<cv::Vec4f> sorted_lines = lines;
     std::sort(sorted_lines.begin(), sorted_lines.end(), compareLines);
     return sorted_lines;
 }
 
-// Function to mirror line2 across line1 (as the axis of symmetry)
-cv::Vec4f mirrorLineAcrossAxis(const cv::Vec4f& axis, const cv::Vec4f& line_to_mirror) {
+
+/*
+Function to mirror line2 across line1 (as the axis of symmetry)
+PARAM:
+    axis: axis of symmetry (line1)
+    line_to_mirror: line to mirror (line2)
+*/
+
+cv::Vec4f ParkingDetection::mirrorLineAcrossAxis(const cv::Vec4f& axis, const cv::Vec4f& line_to_mirror) {
     // Extract points from the line segments
     cv::Point2f A1(axis[0], axis[1]); // Start point of axis line
     cv::Point2f A2(axis[2], axis[3]); // End point of axis line
@@ -1034,7 +512,15 @@ cv::Vec4f mirrorLineAcrossAxis(const cv::Vec4f& axis, const cv::Vec4f& line_to_m
 }
 
 
-bool isBBoxInsideImage(const cv::RotatedRect& bbox, int image_width, int image_height) {
+/*
+Check if a bounding box is inside an image
+PARAM:
+    bbox: rotated rectangle representing the bounding box
+    image_width: width of the image
+    image_height: height of the image
+*/
+
+bool ParkingDetection::isBBoxInsideImage(const cv::RotatedRect& bbox, int image_width, int image_height) {
     // Get the four vertices of the rotated rectangle
     cv::Point2f vertices[4];
     bbox.points(vertices);
@@ -1051,7 +537,16 @@ bool isBBoxInsideImage(const cv::RotatedRect& bbox, int image_width, int image_h
 }
 
 
-bool isTheContentEqual(const cv::RotatedRect& mirroredRect, const cv::RotatedRect& realRect, const cv::Mat& frame, double threshold = 10.0) {
+/*
+Check if the content inside two rectangles is equal
+PARAM:
+    mirroredRect: rotated rectangle representing the mirrored rectangle
+    realRect: rotated rectangle representing the real rectangle
+    frame: input frame
+    threshold: threshold for the difference in mean pixel values
+*/
+
+bool ParkingDetection::isTheContentEqual(const cv::RotatedRect& mirroredRect, const cv::RotatedRect& realRect, const cv::Mat& frame, double threshold) {
     // Get bounding boxes for the two rectangles (mirrored and real)
     cv::Rect bbox_mirrored = mirroredRect.boundingRect();
     cv::Rect bbox_real = realRect.boundingRect();
@@ -1086,8 +581,20 @@ bool isTheContentEqual(const cv::RotatedRect& mirroredRect, const cv::RotatedRec
 }
 
 
-std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
-    std::vector<BBox> bounding_boxes;  // Vector to hold the resulting BBox objects
+/*
+Create BBoxes from a set of lines
+PARAM:
+    frame: input frame
+    lines: input lines
+    minDistanceThreshold: minimum distance between two lines to consider them for a rectangle
+    maxDistanceThreshold: maximum distance between two lines to consider them for a rectangle
+    maxAngleThreshold: maximum angle difference between two lines to consider them for a rectangle
+    minAreaThreshold: minimum area of the rectangle
+    maxAreaThreshold: maximum area of the rectangle
+*/
+
+std::vector<BBox> ParkingDetection::createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
+    std::vector<BBox> bounding_boxes;
     std::set<std::pair<int, int>> used_pairs;
     std::set<std::pair<int, int>> counter_lines;
     std::map<int, int> line_connections;  // To track how many connections each line has
@@ -1104,8 +611,8 @@ std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f
             }
 
             double distance = distanceBetweenSegments2(lines[i], lines[j]);
-            double angle1 = calculateLineAngle(lines[i]);
-            double angle2 = calculateLineAngle(lines[j]);
+            double angle1 = calculateAngle(lines[i]);
+            double angle2 = calculateAngle(lines[j]);
 
             if (distance > minDistanceThreshold && distance < maxDistanceThreshold && std::abs(angle1 - angle2) < maxAngleThreshold) {
                 candidates.push_back(std::make_pair(j, distance));
@@ -1141,15 +648,14 @@ std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f
             cv::Vec4f merged_line = mergeLineSegments(line1, line2);
             cv::RotatedRect rotatedRect(cv::Point((merged_line[0] + merged_line[2]) / 2, (merged_line[1] + merged_line[3]) / 2),
                                         cv::Size(calculateLength(merged_line), distanceBetweenSegments(line1, line2)),
-                                        calculateLineAngle(merged_line));
+                                        calculateAngle(merged_line));
 
             // Calculate the area of the rectangle
             double area = rotatedRect.size.area();
 
             // Check if the area is within the thresholds
-            if (area < minAreaThreshold || area > maxAreaThreshold) {
-                continue;  // Skip this candidate and try the next one
-            }
+            if (area < minAreaThreshold || area > maxAreaThreshold)
+                continue;
 
             // Add the new BBox to the vector
             BBox bbox(static_cast<int>(rotatedRect.center.x),
@@ -1165,14 +671,13 @@ std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f
         }
 
         // If no valid rectangle was found for this line, continue to the next one
-        if (!found_valid_rectangle) {
+        if (!found_valid_rectangle)
             continue;
-        }
     }
 
     // Handle lines that are only connected to one other line
     for (const auto& connection : line_connections) {
-        if (connection.second == 1) {  // Line is connected to only one other line
+        if (connection.second == 1) {
             int line_idx = connection.first;
 
             // Find the line it connects to
@@ -1197,11 +702,11 @@ std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f
 
                         cv::RotatedRect realRect(cv::Point((realLine[0] + realLine[2]) / 2, (realLine[1] + realLine[3]) / 2),
                              cv::Size(calculateLength(realLine), distanceBetweenSegments(line1, line2)),
-                             calculateLineAngle(realLine));
+                             calculateAngle(realLine));
 
                         cv::RotatedRect mirroredRect(cv::Point((line[0] + line[2]) / 2 + 20, (line[1] + line[3]) / 2 + 20),  // Put down and right the center of the rectangle 
                                                      cv::Size(calculateLength(line), distanceBetweenSegments(line1, mirrored_line)), 
-                                                     calculateLineAngle(line));
+                                                     calculateAngle(line));
 
                         // If mirroredRect is inside the image and the content of the realBBox is similar to the new one (works only for the empty parking lot)
                         if (isBBoxInsideImage(mirroredRect, frame.cols, frame.rows) && isTheContentEqual(mirroredRect, realRect, frame)) {
@@ -1228,8 +733,17 @@ std::vector<BBox> createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f
     return bounding_boxes;  // Return the vector of BBox objects
 }
 
-// Function to remove lines between others within a threshold distance
-std::vector<cv::Vec4f> removeLinesBetween(const std::vector<cv::Vec4f>& lines, double xdistanceThreshold, double ydistanceThreshold, double lengthThreshold) {
+
+/*
+Remove lines between others within a threshold distance (lines in the middle of two parking spots)
+PARAM:
+    lines: input lines
+    xdistanceThreshold: maximum distance in x-axis
+    ydistanceThreshold: maximum distance in y-axis
+    lengthThreshold: minimum length of the line to keep
+*/
+
+std::vector<cv::Vec4f> ParkingDetection::removeLinesBetween(const std::vector<cv::Vec4f>& lines, double xdistanceThreshold, double ydistanceThreshold, double lengthThreshold) {
     std::vector<cv::Vec4f> filteredLines = lines;
     for(int i = 0; i < filteredLines.size(); i++) {
         for(int j = 0; j < filteredLines.size(); j++) {
@@ -1244,7 +758,7 @@ std::vector<cv::Vec4f> removeLinesBetween(const std::vector<cv::Vec4f>& lines, d
                     if(z == j) continue;
                     double xDistance2 = std::abs(filteredLines[j][2] - filteredLines[z][0]);
                     double yDistance2 = std::abs(filteredLines[j][3] - filteredLines[z][1]);
-                    if(xDistance2 < xdistanceThreshold && yDistance2 < ydistanceThreshold || (xDistance < 15 && length > 30)) {
+                    if(xDistance2 < xdistanceThreshold && yDistance2 < ydistanceThreshold || (xDistance < 15 && length > lengthThreshold)) {
                         filteredLines.erase(filteredLines.begin() + j);
                         break;
                     }
@@ -1255,7 +769,14 @@ std::vector<cv::Vec4f> removeLinesBetween(const std::vector<cv::Vec4f>& lines, d
     return filteredLines;
 }
 
-bool areBoxesEqual(const BBox& bbox1, const BBox& bbox2) {
+/*
+Check if two BBox objects are equal
+PARAM:
+    bbox1: first BBox
+    bbox2: second BBox
+*/
+
+bool ParkingDetection::areBoxesEqual(const BBox& bbox1, const BBox& bbox2) {
     return bbox1.getX() == bbox2.getX() &&
            bbox1.getY() == bbox2.getY() &&
            bbox1.getWidth() == bbox2.getWidth() &&
@@ -1263,8 +784,15 @@ bool areBoxesEqual(const BBox& bbox1, const BBox& bbox2) {
            std::abs(bbox1.getAngle() - bbox2.getAngle()) < 1e-5; // Using a small tolerance for angle comparison
 }
 
-// Function to remove duplicate BBox objects
-std::vector<BBox> getUniqueBoundingBoxes(const std::vector<BBox>& bboxes) {
+
+/*
+Remove duplicate BBox objects
+PARAM:
+    bboxes: input vector of BBox objects
+*/
+
+
+std::vector<BBox> ParkingDetection::getUniqueBoundingBoxes(const std::vector<BBox>& bboxes) {
     // Copy the input vector
     std::vector<BBox> uniqueBBoxes = bboxes;
 
@@ -1286,8 +814,14 @@ std::vector<BBox> getUniqueBoundingBoxes(const std::vector<BBox>& bboxes) {
     return uniqueBBoxes;
 }
 
+/*
+Compute the area of intersection between two bounding boxes
+PARAM:
+    bbox1: first bounding box
+    bbox2: second bounding box
+*/
 
-double getIntersectionArea(const BBox& bbox1, const BBox& bbox2) {
+double ParkingDetection::getIntersectionArea(const BBox& bbox1, const BBox& bbox2) {
     // Create bounding boxes as Rects
     cv::Rect rect1(bbox1.getX(), bbox1.getY(), bbox1.getWidth(), bbox1.getHeight());
     cv::Rect rect2(bbox2.getX(), bbox2.getY(), bbox2.getWidth(), bbox2.getHeight());
@@ -1299,8 +833,15 @@ double getIntersectionArea(const BBox& bbox1, const BBox& bbox2) {
     return intersection.area();
 }
 
-// Function to remove smaller BBox if intersection area exceeds threshold
-std::vector<BBox> filterBoundingBoxesByIntersection(std::vector<BBox>& bboxes, double threshold) {
+/*
+Remove smaller BBox if intersection area exceeds threshold
+PARAM:
+    bboxes: input vector of BBox objects
+    threshold: threshold for the intersection area
+*/
+
+
+std::vector<BBox> ParkingDetection::filterBoundingBoxesByIntersection(std::vector<BBox>& bboxes, double threshold) {
     std::vector<BBox> filteredBBoxes;
     
     std::vector<bool> to_remove(bboxes.size(), false); // Keep track of boxes to remove
@@ -1325,9 +866,9 @@ std::vector<BBox> filterBoundingBoxesByIntersection(std::vector<BBox>& bboxes, d
             // If overlap exceeds threshold, remove the smaller BBox
             if (overlap_ratio >= threshold) {
                 if (area1 > area2) {
-                    to_remove[i] = true; // Mark bbox[i] for removal
+                    to_remove[i] = true; 
                 } else {
-                    to_remove[j] = true; // Mark bbox[j] for removal
+                    to_remove[j] = true; 
                 }
             }
         }
@@ -1410,7 +951,7 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
 
 
     // Remove xmiddle lines
-    lines = removeLinesBetween(lines, 50, 17, 50);
+    lines = removeLinesBetween(lines, 50, 17, 30);
 
     // Remove short lines 2
     lines = deleteShortLines(lines, 22);
@@ -1453,7 +994,7 @@ std::vector<BBox> ParkingDetection::numberParkings(const std::vector<BBox> parki
 
 void ParkingDetection::draw(const cv::Mat &frame, const std::vector<BBox> parkings) {
     cv::Mat frame_copy = frame.clone();
-    for (const BBox &parking : parkings)
+    for (const BBox& parking : parkings)
     {
         cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
         cv::Point2f vertices[4];
@@ -1466,5 +1007,25 @@ void ParkingDetection::draw(const cv::Mat &frame, const std::vector<BBox> parkin
     cv::imshow("Parking Detection", frame_copy);
     cv::waitKey(0);
     
+}
+
+void ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BBox> parkings) {
+    cv::Mat frame_copy = frame.clone();
+    for (const BBox& parking : parkings)
+    {
+        cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
+        cv::Point2f vertices[4];
+        rotatedRect.points(vertices);
+        for (int i = 0; i < 4; i++) {
+            cv::Scalar color;
+            if(parking.isOccupied())
+                color = cv::Scalar(0, 0, 255); // Red
+            else
+                color = cv::Scalar(0, 0, 255); // Blue
+            cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], color, 2);
+        }
+    }
+    cv::imshow("Parking classification", frame_copy);
+    cv::waitKey(0);
 }
 

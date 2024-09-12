@@ -134,16 +134,13 @@ void BBox::setOccupiedfromObtainedMask(cv::Mat &mask) {
                     
                 }
             }
-            if (occupied) {
-                break;
-            }
+            if (occupied)  break;               
         }
         
         this->occupied = occupied;
-    } else {
+    } else 
         // If the center pixel is not (0, 0, 0), it is occupied
         this->occupied = true;
-    }
     cv::imshow("mask", mask);
 
 }
