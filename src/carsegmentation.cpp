@@ -217,17 +217,48 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
 
     cv::bitwise_or(final_mask, refined_mask, final_mask);
 
+    cv::Mat frame_gray_clahe, best_background_gray_clahe;
+    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+    clahe->setClipLimit(4);
+    clahe->setTilesGridSize(cv::Size(8, 8));
+    clahe->apply(frame_gray, frame_gray_clahe);
+    clahe->apply(best_background_gray, best_background_gray_clahe);
+
+    cv::Mat fgMask_clahe, thresh_clahe;
+    cv::absdiff(frame_gray_clahe, best_background_gray_clahe, fgMask_clahe);
+    cv::threshold(fgMask_clahe, thresh_clahe, 70, 255, cv::THRESH_BINARY);
+    thresh_clahe = refineForegroundMask(thresh_clahe, 1000, 0.5, 3.0);
+
+    std::vector<std::vector<cv::Point>> contours_clahe;
+    cv::findContours(thresh_clahe, contours_clahe, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    cv::Mat final_mask_clahe = cv::Mat::zeros(frame.size(), CV_8UC1);
+    for(int i = 0; i < contours_clahe.size(); i++) {
+        cv::Mat component_mask = cv::Mat::zeros(frame.size(), CV_8UC1);
+        cv::drawContours(component_mask, contours_clahe, i, cv::Scalar(255), cv::FILLED);
+
+        cv::Mat intersection;
+        cv::bitwise_and(component_mask, final_mask, intersection);
+        
+        if(cv::countNonZero(intersection) > 0 && cv::contourArea(contours_clahe[i]) < 10000)
+            cv::bitwise_or(final_mask_clahe, component_mask, final_mask_clahe);
+    }
+
+    cv::bitwise_or(final_mask, final_mask_clahe, final_mask);
+
+    final_mask = refineForegroundMask(final_mask, 800, 0.5, 4.0);
+
     cv::Mat kernel25x25 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(25, 25));
     cv::morphologyEx(final_mask, final_mask, cv::MORPH_CLOSE, kernel25x25);
 
-    final_mask = refineForegroundMask(final_mask, 600, 0.5, 4.0);
+    final_mask = refineForegroundMask(final_mask, 800, 0.5, 4.0);
 
     cv::Mat output = frame.clone();
     cv::Mat colored_mask = cv::Mat::zeros(frame.size(), CV_8UC3);
     colored_mask.setTo(cv::Scalar(0, 0, 255), final_mask == 255);
     cv::addWeighted(output, 1, colored_mask, 0.7, 0, output);
-/*
-    cv::imshow("Frame", frame);
+
+    /*cv::imshow("Frame", frame);
     cv::imshow("Threshold", thresh);
     cv::imshow("H Channel", hsv_channels[0]);
     cv::imshow("Black Cars", black_cars);
