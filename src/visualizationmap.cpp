@@ -60,7 +60,7 @@ cv::Mat VisualizationMap::drawParkingMap(cv::Mat &frame, std::vector<BBox> bboxe
         } else if (row == 2 || row == 3) {
             spotsInRow = 9;   // Next two rows have 9 spots each
         } else {
-            spotsInRow = 2;   // Last row has 3 spots
+            spotsInRow = 0;   // Last row has 3 spots
         }
 
         // Adjust start position for each row
