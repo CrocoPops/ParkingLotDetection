@@ -369,10 +369,12 @@ int main(int argc, char** argv) {
                 bbox.setOccupiedfromObtainedMask(car_segmentation[i][j]);
             bboxes = pd.numberParkings(bboxes);
             temp.push_back(pd.drawColored(parking, bboxes));
+
+            //  CARS CLASSIFICATION
+            cv::Mat car_mask = cs.classifyCars(car_segmentation[i][j], bboxes);
+
             cv::Mat output = temp[j];
-            cv::Mat colored_mask = cv::Mat::zeros(output.size(), CV_8UC3);
-            colored_mask.setTo(cv::Scalar(0, 255, 0), car_segmentation[i][j] == 255);
-            cv::addWeighted(output, 1, colored_mask, 0.7, 0, output);
+            cv::addWeighted(output, 1, car_mask, 0.7, 0, output);
             cv::imshow("Parking", output);
             cv::waitKey(0);
             // PARKING DETECTION

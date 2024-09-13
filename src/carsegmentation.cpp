@@ -239,6 +239,55 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
 }
 
 
+
+cv::Mat CarSegmentation::classifyCars(cv::Mat &mask, std::vector<BBox> parkings) {
+    cv::Mat colored_mask = mask.clone();
+    cv::cvtColor(colored_mask, colored_mask, cv::COLOR_GRAY2BGR);
+
+    cv::Mat labels, stats, centroids;
+    int nLabels = cv::connectedComponentsWithStats(mask, labels, stats, centroids, 8, CV_32S);
+
+    // Initially, set all components to green
+    colored_mask.setTo(cv::Scalar(0, 255, 0), mask == 255);
+    
+    for(const BBox& parking : parkings) {
+        if(!parking.isOccupied()) // If the parking is not occupied go to the next one
+            continue;
+        
+        int x = parking.getX();
+        int y = parking.getY();
+        int width = parking.getWidth();
+        int height = parking.getHeight();
+        int angle = parking.getAngle();
+
+        cv::RotatedRect rect = cv::RotatedRect(cv::Point2f(x, y), cv::Size2f(width, height), angle);
+        
+        cv::Point2f vertices[4];
+        rect.points(vertices);
+        cv::Point intVertices[4];
+        for (int i = 0; i < 4; i++)
+            intVertices[i] = cv::Point(static_cast<int>(vertices[i].x), static_cast<int>(vertices[i].y));
+
+        // Create a mask for the parking BBox
+        cv::Mat roiMask = cv::Mat::zeros(mask.size(), CV_8UC1);
+        cv::fillConvexPoly(roiMask, intVertices, 4, cv::Scalar(255));
+        // Iterate through each connected component
+        for (int i = 1; i < nLabels; i++) {
+            cv::Mat componentMask = (labels == i); 
+            // Check if there is any intersection between the parking BBox and the component
+            cv::Mat intersection;
+            cv::bitwise_and(componentMask, roiMask, intersection);
+            if (cv::countNonZero(intersection) > 0) {
+                // If any part of the component is inside the BBox, set the whole component to red
+                colored_mask.setTo(cv::Scalar(0, 0, 255), componentMask);
+            }
+        }
+    }
+    return colored_mask;
+}
+
+
+
 /*
 cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
     cv::Mat best_background = selectClosestBackground(frame, empty_parkings);
