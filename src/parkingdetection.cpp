@@ -1008,34 +1008,100 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
 
 }
 
+std::vector<BBox> ParkingDetection::sortParkingsForFindId(const std::vector<BBox> parkings) {
+    std::vector<BBox> parkings_copy;
+    std::vector<BBox> parking_zone1;
+    std::vector<BBox> parking_zone2;
+    std::vector<BBox> parking_zone3;
+    std::vector<BBox> parking_zone4;
 
+    // Filter the BBox based on the parking line they belongs to.
+    cv::Point p1(325, 35);
+    cv::Point p2(860, 710);
+ 
+    float slope1 = float(p2.y - p1.y) / float(p2.x - p1.x);
+    float q1 = p1.y - slope1 * p1.x;
+
+    
+    cv::Point p3(500, 10);
+    cv::Point p4(1240, 680);
+ 
+    float slope2 = float(p4.y - p3.y) / float(p4.x - p3.x);
+    float q2 = p3.y - slope2 * p3.x;
+
+
+    cv::Point p5(660, 10);
+    cv::Point p6(1270, 410);
+ 
+    float slope3 = float(p6.y - p5.y) / float(p6.x - p5.x);
+    float q3 = p5.y - slope3 * p5.x;
+
+    for(const BBox& parking : parkings) {
+        cv::Point center = cv::Point(parking.getX(), parking.getY());
+        float y = slope1 * center.x + q1;
+        if(center.y > y) {
+            parking_zone1.push_back(parking);
+        } else {
+            y = slope2 * center.x + q2;
+            if(center.y > y) {
+                parking_zone2.push_back(parking);
+            } else {
+                y = slope3 * center.x + q3;
+                if(center.y > y) {
+                    parking_zone3.push_back(parking);
+                } else {
+                    parking_zone4.push_back(parking);
+                }
+            }
+        }
+    }
+
+    // Sort each set of BBox in decreasing order of the y-coordinate
+    std::sort(parking_zone1.begin(), parking_zone1.end(), [](const BBox& a, const BBox& b) { return a.getY() > b.getY(); });
+    std::sort(parking_zone2.begin(), parking_zone2.end(), [](const BBox& a, const BBox& b) { return a.getY() > b.getY(); });
+    std::sort(parking_zone3.begin(), parking_zone3.end(), [](const BBox& a, const BBox& b) { return a.getY() > b.getY(); });
+    std::sort(parking_zone4.begin(), parking_zone4.end(), [](const BBox& a, const BBox& b) { return a.getY() > b.getY(); });
+
+    // Merge the sorted BBox
+    parkings_copy.insert(parkings_copy.end(), parking_zone1.begin(), parking_zone1.end());
+    parkings_copy.insert(parkings_copy.end(), parking_zone2.begin(), parking_zone2.end());
+    parkings_copy.insert(parkings_copy.end(), parking_zone3.begin(), parking_zone3.end());
+    parkings_copy.insert(parkings_copy.end(), parking_zone4.begin(), parking_zone4.end());
+
+
+    return parkings_copy;
+}
 
 std::vector<BBox> ParkingDetection::numberParkings(const std::vector<BBox> parkings) {
-    //TODO: Implement this method
-    return parkings;
+    std::vector<BBox> parkings_copy = sortParkingsForFindId(parkings);
+    int i = 1;
+    for(BBox& parking : parkings_copy) {
+        parking.setId(i);
+        i++;
+    }
+
+    return parkings_copy;
 }
 
 void ParkingDetection::draw(const cv::Mat &frame, const std::vector<BBox> parkings) {
     cv::Mat frame_copy = frame.clone();
-    for (const BBox& parking : parkings)
-    {
+    for (const BBox& parking : parkings) {
         cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
         cv::Point2f vertices[4];
         rotatedRect.points(vertices);
         for (int i = 0; i < 4; i++)
-        {
             cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 0), 2);
-        }
+        
     }
     cv::imshow("Parking Detection", frame_copy);
     cv::waitKey(0);
     
 }
 
+
 cv::Mat ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BBox> parkings) {
     cv::Mat frame_copy = frame.clone();
-    for (const BBox& parking : parkings)
-    {
+    for (const BBox& parking : parkings) {
         cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
         cv::Point2f vertices[4];
         rotatedRect.points(vertices);
@@ -1047,6 +1113,16 @@ cv::Mat ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BB
                 color = cv::Scalar(255, 0, 0); // Blue
             cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], color, 2);
         }
+
+        // Write in the center of the parking the Id of the BBox
+        std::string text = std::to_string(parking.getId());
+        cv::Size textSize = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 2, 0);
+        int textX = parking.getX() - (textSize.width / 2);
+        int textY = parking.getY() + (textSize.height / 2);
+        if(parking.isOccupied())
+            cv::putText(frame_copy, text, cv::Point(textX, textY), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
+        else
+            cv::putText(frame_copy, text, cv::Point(textX, textY), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 0), 2);
     }
     cv::imshow("Parking classification", frame_copy);
     cv::waitKey(0);

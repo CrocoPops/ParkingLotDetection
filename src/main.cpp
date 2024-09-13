@@ -365,8 +365,9 @@ int main(int argc, char** argv) {
                 return -1;
             }
             
-            for (auto& bbox : bboxes) 
+            for (auto& bbox : bboxes)
                 bbox.setOccupiedfromObtainedMask(car_segmentation[i][j]);
+            bboxes = pd.numberParkings(bboxes);
             temp.push_back(pd.drawColored(parking, bboxes));
             cv::Mat output = temp[j];
             cv::Mat colored_mask = cv::Mat::zeros(output.size(), CV_8UC3);
