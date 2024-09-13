@@ -136,9 +136,43 @@ int main(int argc, char** argv) {
         real_bboxes = parseParkingXML(bboxesPaths[0][i]);
 
         std::vector<BBox> detected_bboxes = pd.detect(parking);
+        
+        // Filter the real BBox deleting the ones that are not considered in the evaluation (the ones in the right part of the image)
+        cv::Point p1(870, 0);
+        cv::Point p2(1275, 225);
+
+        float slope = float(p2.y - p1.y) / float(p2.x - p1.x);
+        float q = p1.y - slope * p1.x;
+
+        for(int z = 0; z < real_bboxes.size(); z++) {
+            cv::RotatedRect bbox = real_bboxes[z].getRotatedRect();
+            cv::Point2f vertices[4];
+            bbox.points(vertices);
+            for(int j = 0; j < 4; j++) {
+                if(vertices[j].y < slope * vertices[j].x + q) {
+                    real_bboxes.erase(real_bboxes.begin() + z);
+                    z--; // I have to decrement the index because I have deleted an element
+                    break;
+                }
+            }
+        }  
+
+
+        for(int z = 0; z < detected_bboxes.size(); z++) {
+            cv::RotatedRect bbox = detected_bboxes[z].getRotatedRect();
+            cv::Point2f vertices[4];
+            bbox.points(vertices);
+            for(int j = 0; j < 4; j++) {
+                if(vertices[j].y < slope * vertices[j].x + q) {
+                    detected_bboxes.erase(detected_bboxes.begin() + z);
+                    z--; // I have to decrement the index because I have deleted an element
+                    break;
+                }
+            }
+        } 
+
         all_detected_bboxes.push_back(detected_bboxes);
         pd.draw(parking, detected_bboxes);
-        
         // mAP
         std::cout << "METRICS: " << std::endl;
         std::cout << "mAP: " << computeMAP(detected_bboxes, real_bboxes, 0.5) << std::endl;
@@ -336,7 +370,7 @@ int main(int argc, char** argv) {
             temp.push_back(pd.drawColored(parking, bboxes));
             cv::Mat output = temp[j];
             cv::Mat colored_mask = cv::Mat::zeros(output.size(), CV_8UC3);
-            colored_mask.setTo(cv::Scalar(0, 0, 255), car_segmentation[i][j] == 255);
+            colored_mask.setTo(cv::Scalar(0, 255, 0), car_segmentation[i][j] == 255);
             cv::addWeighted(output, 1, colored_mask, 0.7, 0, output);
             cv::imshow("Parking", output);
             cv::waitKey(0);

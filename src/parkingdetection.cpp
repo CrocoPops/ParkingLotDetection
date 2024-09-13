@@ -108,9 +108,9 @@ std::vector<cv::Vec4f> ParkingDetection::filterLinesByKMeans(const std::vector<c
 
     // Calculate the angle of each line
     std::vector<float> angles;
-    for (const auto& line : lines) {
+    for (const auto& line : lines)
         angles.push_back(static_cast<float>(calculateAngle(line)));
-    }
+    
 
     // Apply K-Means clustering on angles
     cv::Mat labels, centers;
@@ -646,8 +646,8 @@ std::vector<BBox> ParkingDetection::createBoundingBoxes(cv::Mat frame, const std
             line_connections[nearest_line_idx]++;
 
             cv::Vec4f merged_line = mergeLineSegments(line1, line2);
-            cv::RotatedRect rotatedRect(cv::Point((merged_line[0] + merged_line[2]) / 2 - 10, (merged_line[1] + merged_line[3]) / 2 - 10),
-                                        cv::Size(calculateLength(merged_line), distanceBetweenSegments(line1, line2)),
+            cv::RotatedRect rotatedRect(cv::Point((merged_line[0] + merged_line[2]) / 2 - 10, (merged_line[1] + merged_line[3]) / 2 - 10), // Modify slightly the coordinates of the center
+                                        cv::Size(calculateLength(merged_line), distanceBetweenSegments(line1, line2)),                 // For help then in parking classification
                                         calculateAngle(merged_line));
 
             // Calculate the area of the rectangle
@@ -884,7 +884,27 @@ std::vector<BBox> ParkingDetection::filterBoundingBoxesByIntersection(std::vecto
     return filteredBBoxes;
 }
 
+std::vector<cv::Vec4f> ParkingDetection::enforceShortLines(std::vector<cv::Vec4f> lines, double threshold) {
+    std::vector<cv::Vec4f> new_lines;
+    for (const auto& line : lines){
+        cv::Vec4f new_line = line;
+        double length = calculateLength(line);
+        if(length < threshold) {
+            // Calculate the direction of the line (normalized)
+            double dx = line[2] - line[0];  
+            double dy = line[3] - line[1];  
+            double scale = (threshold / length) / 2; 
 
+            // Extend both ends of the line equally to double its length
+            new_line[0] = line[0] - dx * scale; 
+            new_line[1] = line[1] - dy * scale;
+            new_line[2] = line[2] + dx * scale;
+            new_line[3] = line[3] + dy * scale;
+        }
+        new_lines.push_back(new_line);
+    }
+    return new_lines;
+}
 
 std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     cv::Mat gray;
@@ -955,13 +975,16 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
 
     // Remove short lines 2
     lines = deleteShortLines(lines, 22);
-   
+
+    // Enforce the short lines
+    lines = enforceShortLines(lines, 30.0);
+
+
     int minDistanceThreshold = 20;
     int maxDistanceThreshold = 150;
     int maxAngleThreshold = 20;
     double minAreaThreshold = 100;
     double maxAreaThreshold = 20000;
-    
 
     std::vector<BBox> boundingBoxes = createBoundingBoxes(frame, lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
 

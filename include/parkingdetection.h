@@ -37,7 +37,7 @@ class ParkingDetection {
         std::vector<BBox> getUniqueBoundingBoxes(const std::vector<BBox>& bboxes);
         double getIntersectionArea(const BBox& bbox1, const BBox& bbox2);
         std::vector<BBox> filterBoundingBoxesByIntersection(std::vector<BBox>& bboxes, double threshold);
-
+        std::vector<cv::Vec4f> enforceShortLines(std::vector<cv::Vec4f> lines, double threshold);
     public:
         ParkingDetection(std::vector<BBox> parkings = {});
         std::vector<BBox> detect(const cv::Mat &frame);
