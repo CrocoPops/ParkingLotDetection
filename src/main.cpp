@@ -393,7 +393,7 @@ int main(int argc, char** argv) {
     // Categories: 1 - Car correctly parked, 2 - Car out of place
 
     // 2D TOP-VIEW VISUALIZATION MAP
-    /*
+    
     for(int i = 1; i <= 5; i++) {
         for(int j = 0; j < parkingImages[i].size(); j++) {
         //for(int i = 0; i < 1; i++) {
@@ -408,13 +408,13 @@ int main(int argc, char** argv) {
                 return -1;
             }
 
-            std::vector<BBox> bboxes = parseParkingXML(bboxesPaths[i][j]);
+            for (auto& bbox : bboxes)
+                bbox.setOccupiedfromObtainedMask(car_segmentation[i][j]);
+            
             VisualizationMap map;
             map.drawParkingMap(parking, bboxes);
         }
     }
-    */
-
 
     return 0;
 }
