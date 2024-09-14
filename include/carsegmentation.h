@@ -1,3 +1,5 @@
+// Author: Eddy Frighetto, ID: 2119279
+
 #ifndef CARSEGMENTATION_H
 #define CARSEGMENTATION_H
 
@@ -12,13 +14,12 @@
 // Define here the utility functions
 class CarSegmentation {
     private:
-        cv::Ptr<cv::BackgroundSubtractor> backSub;
-        void regionGrowing(cv::Mat frame, cv::Mat mask, cv::Mat &result, int threshold);
+        double computeSimilarity(const cv::Mat& frame, const cv::Mat& background);
+        cv::Mat selectClosestBackground(cv::Mat &frame, std::vector<cv::Mat> empty_parkings);
+        cv::Mat refineForegroundMask(const cv::Mat &fgMask, int minArea, double minAspectRatio, double maxAspectRatio);
     public:
         CarSegmentation();
         ~CarSegmentation();
-        //void computeHOG(cv::Mat &frame, cv::HOGDescriptor &hog, std::vector<float> &descriptors);
-        //void trainSVM(const cv::Mat &trainingData, const cv::Mat &labels);
         void trainBackgroundSubtractor(std::vector<cv::Mat> empty_parkings);
         cv::Mat detectCars(cv::Mat frame, std::vector<cv::Mat> empty_parkings);
         cv::Mat detectCarsTrue(cv::Mat &frame, cv::Mat &mask);
