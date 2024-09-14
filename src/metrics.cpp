@@ -21,17 +21,55 @@ float computeIoU(const BBox& box1, const BBox& box2) {
     return bbox_intersection / bbox_union;
 }
 
+cv::Mat convertMask(const cv::Mat mask, const cv::Scalar color) {
+
+    cv::Mat new_mask;
+    cv::inRange(mask, color, color, new_mask);
+
+    return new_mask;
+}
+
 float computeIoU(const cv::Mat mask, const cv::Mat ground_truth) {
-    cv::Mat inter_mask = mask & ground_truth;
-    cv::Mat union_mask = mask | ground_truth;
 
-    if (cv::countNonZero(union_mask) == 0)
-        return 1.0f;
+    // Per ogni classe, vogliamo il bianco dove ci importa
 
-    int inter_area = cv::countNonZero(inter_mask);
-    int union_area = cv::countNonZero(union_mask);
+    float IoUs = 0;
 
-    return (float)inter_area / union_area;
+    for (int i = 0; i < 3; i++) // Three classes (including background)
+    {
+
+        cv::Mat masked;
+        cv::Mat masked_real;
+
+        if(i == 0) { // Black
+            masked = convertMask(mask, cv::Scalar(0,0,0));
+            masked_real = convertMask(ground_truth, cv::Scalar(0,0,0));
+        }
+        else if (i == 1) // Green
+        {
+            masked = convertMask(mask, cv::Scalar(0, 255, 0));
+            masked_real = convertMask(ground_truth, cv::Scalar(0, 255, 0));
+        } else { // Red
+            masked = convertMask(mask, cv::Scalar(0, 0, 255));
+            masked_real = convertMask(ground_truth, cv::Scalar(0, 0, 255));
+
+        }
+
+        cv::Mat inter_mask = masked & masked_real;
+        cv::Mat union_mask = masked | masked_real;
+
+        if (cv::countNonZero(union_mask) == 0) {
+            IoUs += 1.0f;
+            continue;
+        }
+
+        int inter_area = cv::countNonZero(inter_mask);
+        int union_area = cv::countNonZero(union_mask);
+
+        IoUs += (float) inter_area / union_area;
+    }
+    
+    return IoUs / 3.0f;
 }
 
 float computeAveragePrecision(const std::vector<float>& recalls, const std::vector<float>& precisions) {
@@ -129,5 +167,5 @@ float computeMAP(const std::vector<BBox>& detections, const std::vector<BBox>& g
 
     }
     
-    return (float) (aps / 2.0f);
+    return (float) aps / 2.0f;
 }

@@ -186,7 +186,7 @@ namespace loaders {
                     cv::Mat mask = cv::imread(maskPath);
                     if (!mask.empty()) {
                         cv::Mat coloredMask = mask.clone();
-                        coloredMask.setTo(cv::Scalar(128, 128, 128), mask == 0);
+                        coloredMask.setTo(cv::Scalar(0, 0, 0), mask == 0);
                         coloredMask.setTo(cv::Scalar(0, 0, 255), mask == 1);
                         coloredMask.setTo(cv::Scalar(0, 255, 0), mask == 2);
 

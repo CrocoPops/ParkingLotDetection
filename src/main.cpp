@@ -101,8 +101,9 @@ int main(int argc, char** argv) {
             VisualizationMap vm;
             vm.drawParkingMap(parkingsWithMap, bestDetectedBBoxes);
 
-            std::cout << "mAP for sequence" << i << " frame " << j + 1 << std::endl;
-            std::cout << computeMAP(bestDetectedBBoxes, realBBoxes[i][j], 0.5) << std::endl << std::endl;
+            std::cout << "Metrics for sequence" << i << " frame " << j + 1 << std::endl;
+            std::cout << "mAP: " << computeMAP(bestDetectedBBoxes, realBBoxes[i][j], 0.5) << std::endl;
+            std::cout << "mIoU: " << computeIoU(mask, realMasks[i][j]) << std::endl << std::endl;
             
             cv::imshow("Parkings", current_image);
             cv::imshow("Minimap", parkingsWithMap);
