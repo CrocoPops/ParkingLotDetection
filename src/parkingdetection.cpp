@@ -1,5 +1,4 @@
 #include "parkingdetection.h"
-#include <opencv2/ximgproc.hpp>
 
 ParkingDetection::ParkingDetection(std::vector<BBox> parkings) : parkings(parkings) {}
 
@@ -1003,8 +1002,27 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
         bbox.setHeight(bbox.getHeight() * 1.3);
     }
 
+    // Filter the real BBox deleting the ones that are not considered in the evaluation (the ones in the right part of the image)
+    cv::Point p1(870, 0);
+    cv::Point p2(1275, 225);
+
+    float slope = float(p2.y - p1.y) / float(p2.x - p1.x);
+    float q = p1.y - slope * p1.x;
+
+    for(int z = 0; z < boundingBoxes.size(); z++) {
+        cv::RotatedRect bbox = boundingBoxes[z].getRotatedRect();
+        cv::Point2f vertices[4];
+        bbox.points(vertices);
+        for(int j = 0; j < 4; j++) {
+            if(vertices[j].y < slope * vertices[j].x + q) {
+                boundingBoxes.erase(boundingBoxes.begin() + z);
+                z--; // I have to decrement the index because I have deleted an element
+                break;
+            }
+        }
+    }  
     
-    return boundingBoxes;
+    return numberParkings(boundingBoxes);
 
 }
 
@@ -1084,23 +1102,18 @@ std::vector<BBox> ParkingDetection::numberParkings(const std::vector<BBox> parki
 }
 
 void ParkingDetection::draw(const cv::Mat &frame, const std::vector<BBox> parkings) {
-    cv::Mat frame_copy = frame.clone();
     for (const BBox& parking : parkings) {
         cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
         cv::Point2f vertices[4];
         rotatedRect.points(vertices);
         for (int i = 0; i < 4; i++)
-            cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 0), 2);
+            cv::line(frame, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 0), 2);
         
     }
-    cv::imshow("Parking Detection", frame_copy);
-    cv::waitKey(0);
-    
 }
 
 
-cv::Mat ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BBox> parkings) {
-    cv::Mat frame_copy = frame.clone();
+void ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BBox> parkings) {
     for (const BBox& parking : parkings) {
         cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
         cv::Point2f vertices[4];
@@ -1111,7 +1124,7 @@ cv::Mat ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BB
                 color = cv::Scalar(0, 0, 255); // Red
             else
                 color = cv::Scalar(255, 0, 0); // Blue
-            cv::line(frame_copy, vertices[i], vertices[(i + 1) % 4], color, 2);
+            cv::line(frame, vertices[i], vertices[(i + 1) % 4], color, 2);
         }
 
         // Write in the center of the parking the Id of the BBox
@@ -1120,12 +1133,9 @@ cv::Mat ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BB
         int textX = parking.getX() - (textSize.width / 2);
         int textY = parking.getY() + (textSize.height / 2);
         if(parking.isOccupied())
-            cv::putText(frame_copy, text, cv::Point(textX, textY), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
+            cv::putText(frame, text, cv::Point(textX, textY), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 2);
         else
-            cv::putText(frame_copy, text, cv::Point(textX, textY), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 0), 2);
+            cv::putText(frame, text, cv::Point(textX, textY), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 0), 2);
     }
-    cv::imshow("Parking classification", frame_copy);
-    cv::waitKey(0);
-    return frame_copy;
 }
 

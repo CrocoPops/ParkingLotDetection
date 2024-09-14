@@ -36,73 +36,98 @@ float computeIoU(const cv::Mat mask, const cv::Mat ground_truth) {
 
 float computeAveragePrecision(const std::vector<float>& recalls, const std::vector<float>& precisions) {
 
-    // Since I want to calculate the area under the precision-recall curve, I will modify the vectors
-    // so that the area is close for sure
-    std::vector<float> modified_precisions(precisions);
-    std::vector<float> modified_recalls(recalls);
-
-    modified_recalls.insert(modified_recalls.begin(), 0.0f);
-    modified_recalls.push_back(1.0f);
-    modified_precisions.insert(modified_precisions.begin(), 0.0f);
-    modified_precisions.push_back(0.0f);
-
-    // Making the precision curve decreasing
-    for (int i = modified_precisions.size() - 2; i >= 0; --i)
-        modified_precisions[i] = std::max(modified_precisions[i], modified_precisions[i + 1]);
-
-    // Calculating the effective AP (area below precision-recall curve)
-    // in other words im calculating area of rectangles with base recall[i] - recall[i-1] and height precision[i]
+    // Define the 11-point recall levels
+    std::vector<float> recall_levels = {0.0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f, 0.9f, 1.0f};
     float ap = 0.0f;
-    for (size_t i = 1; i < modified_recalls.size(); ++i) {
-        if (modified_recalls[i] != modified_recalls[i - 1]) {
-            ap += (modified_recalls[i] - modified_recalls[i - 1]) * modified_precisions[i];
+
+    // Iterate over each recall level and find the maximum precision for that level
+    for (float recall_level : recall_levels) {
+        float max_precision = 0.0f;
+
+        // Find the maximum precision where recall >= recall_level
+        for (size_t i = 0; i < recalls.size(); ++i) {
+            if (recalls[i] >= recall_level) {
+                max_precision = std::max(max_precision, precisions[i]);
+            }
         }
+
+        // Accumulate the precision values for each recall level
+        ap += max_precision;
     }
+
+    // Average the precision over the 11 recall levels
+    ap /= recall_levels.size();
 
     return ap;
 }
 
 
 float computeMAP(const std::vector<BBox>& detections, const std::vector<BBox>& ground_truths, float iouThreshold = 0.5) {
-    int num_parkings = ground_truths.size();
 
-    // I need a std::vector since it is cumulative
-    std::vector<int> true_positives;
+    float aps = 0.0;
 
-    for (const auto& detected_parking : detections) {
-        float best_iou = 0.0f;
+    for (int i = 0; i <= 1; i++) {
+        std::vector<BBox> class_detected;
+        std::vector<BBox> class_real;
 
-        for (const auto& ground_truth_parking : ground_truths) {
-
-            // Compute intersection over union (in this case for each detected-real parking space)
-            float iou = computeIoU(detected_parking, ground_truth_parking);
-
-            // Since I have multiple parking space detections, I need to find the one
-            // with the largest IoU to match the parking that I tried to detect
-            if (iou > best_iou)
-                best_iou = iou;
-
+        for(const BBox& detected : detections) {
+            if(detected.isOccupied() == i) {
+                class_detected.push_back(detected);
+            }
         }
 
-        // Now that I found the best IoU, I can compare it with the threshold
-        // This will append 0 if below threshold, 1 otherwise
-        true_positives.push_back(best_iou > iouThreshold);
+        
+        for(const BBox& real : ground_truths) {
+            if(real.isOccupied() == i) {
+                class_real.push_back(real);
+            }
+        }
+
+
+        int num_parkings = class_real.size();
+        
+        // I need a std::vector since it is cumulative
+        std::vector<int> true_positives;
+
+        for (const auto& detected_parking : class_detected) {
+            float best_iou = 0.0f;
+
+            for (const auto& ground_truth_parking : class_real) {
+
+                // Compute intersection over union (in this case for each detected-real parking space)
+                float iou = computeIoU(detected_parking, ground_truth_parking);
+
+                // Since I have multiple parking space detections, I need to find the one
+                // with the largest IoU to match the parking that I tried to detect
+                if (iou > best_iou)
+                    best_iou = iou;
+
+            }
+
+            // Now that I found the best IoU, I can compare it with the threshold
+            // This will append 0 if below threshold, 1 otherwise
+            true_positives.push_back(best_iou > iouThreshold);
+        }
+
+        // If true_positives is empty, it means that we have no true positive so our mAP is 0
+        if (true_positives.empty())
+            aps += 1.0f;
+
+        // Calculating the precisions and recalls
+        int cum_true_positives = 0;
+        std::vector<float> precisions, recalls;
+        for (size_t i = 0; i < true_positives.size(); ++i) {
+            cum_true_positives += true_positives[i];
+            precisions.push_back((float)cum_true_positives / (i + 1));
+            recalls.push_back((float)cum_true_positives / num_parkings);
+        }
+
+        // Calculating the AP
+        float ap = computeAveragePrecision(recalls, precisions);
+
+        aps += ap;
+
     }
-
-    // If true_positives is empty, it means that we have no true positive so our mAP is 0
-    if (true_positives.empty())
-        return 0.0f;
-
-    // Calculating the precisions and recalls
-    int cum_true_positives = 0;
-    std::vector<float> precisions, recalls;
-    for (size_t i = 0; i < true_positives.size(); ++i) {
-        cum_true_positives += true_positives[i];
-        precisions.push_back((float)cum_true_positives / (i + 1));
-        recalls.push_back((float)cum_true_positives / num_parkings);
-    }
-
-    // Calculating the AP
-    float ap = computeAveragePrecision(recalls, precisions);
-    return ap;
+    
+    return (float) (aps / 2.0f);
 }

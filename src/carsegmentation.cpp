@@ -57,8 +57,8 @@ cv::Mat CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     coloredMask.setTo(cv::Scalar(0, 0, 255), mask == 1);
     coloredMask.setTo(cv::Scalar(0, 255, 0), mask == 2);
 
-    cv::Mat result;
-    cv::addWeighted(coloredMask, 0.7, frame, 1, 0, result);
+    // cv::Mat result;
+    // cv::addWeighted(coloredMask, 0.7, frame, 1, 0, result);
 
     //cv::imshow("Contours", result);
     //cv::waitKey(0);
@@ -125,7 +125,8 @@ cv::Mat refineForegroundMask(const cv::Mat &fgMask, int minArea, double minAspec
     return finalMask;
 }
 
-cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
+cv::Mat CarSegmentation::detectCars(cv::Mat image, std::vector<cv::Mat> empty_parkings) {
+    cv::Mat frame = image.clone();
     cv::Mat best_background = selectClosestBackground(frame, empty_parkings);
     cv::Mat frame_gray, best_background_gray;
     cv::cvtColor(frame, frame_gray, cv::COLOR_BGR2GRAY);
@@ -252,11 +253,6 @@ cv::Mat CarSegmentation::detectCars(cv::Mat &frame, std::vector<cv::Mat> empty_p
     cv::morphologyEx(final_mask, final_mask, cv::MORPH_CLOSE, kernel25x25);
 
     final_mask = refineForegroundMask(final_mask, 800, 0.5, 4.0);
-
-    cv::Mat output = frame.clone();
-    cv::Mat colored_mask = cv::Mat::zeros(frame.size(), CV_8UC3);
-    colored_mask.setTo(cv::Scalar(0, 0, 255), final_mask == 255);
-    cv::addWeighted(output, 1, colored_mask, 0.7, 0, output);
 
     /*cv::imshow("Frame", frame);
     cv::imshow("Threshold", thresh);

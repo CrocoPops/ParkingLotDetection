@@ -113,10 +113,6 @@ cv::Mat VisualizationMap::drawParkingMap(cv::Mat &frame, std::vector<BBox> bboxe
     
     // Blend or copy the map onto the ROI
     cv::add(roi, map, roi);
-
-    // Display the result
-    cv::imshow("Frame with Map", frame);
-    cv::waitKey(0);
     
     return frame;
 }

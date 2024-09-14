@@ -44,6 +44,6 @@ class ParkingDetection {
         std::vector<BBox> detect(const cv::Mat &frame);
         std::vector<BBox> numberParkings(const std::vector<BBox> parkings);
         void draw(const cv::Mat &frame, const std::vector<BBox> parkings);
-        cv::Mat drawColored(const cv::Mat &frame, const std::vector<BBox> parkings);
+        void drawColored(const cv::Mat &frame, const std::vector<BBox> parkings);
 };
 #endif
