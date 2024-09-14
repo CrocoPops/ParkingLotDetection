@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
             detectedMasks.push_back(mask);
             
             cv::Mat parkingsWithMap = current_image.clone();
-            
+
             // Drawing colored segmentation into original image
             cv::Mat maskedImage;
             cv::addWeighted(current_image, 1, mask, 0.7, 0, maskedImage);
@@ -100,6 +100,9 @@ int main(int argc, char** argv) {
 
             VisualizationMap vm;
             vm.drawParkingMap(parkingsWithMap, bestDetectedBBoxes);
+
+            std::cout << "mAP for sequence" << i << " frame " << j + 1 << std::endl;
+            std::cout << computeMAP(bestDetectedBBoxes, realBBoxes[i][j], 0.5) << std::endl << std::endl;
             
             cv::imshow("Parkings", current_image);
             cv::imshow("Minimap", parkingsWithMap);
