@@ -29,7 +29,6 @@ class BBox {
         void setAngle(double angle);
         bool isOccupied() const;
         void setOccupied(bool occupied);
-        void setOccupied(cv::Mat &mask);
         void setOccupiedfromObtainedMask(cv::Mat &mask);
         void setContour(std::vector<cv::Point> contour);
         void setContour(cv::Point vertex);

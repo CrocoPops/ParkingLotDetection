@@ -40,7 +40,6 @@ class ParkingDetection {
         std::vector<cv::Vec4f> enforceShortLines(std::vector<cv::Vec4f> lines, double threshold);
         std::vector<BBox> sortParkingsForFindId(const std::vector<BBox> parkings);
     public:
-        ParkingDetection(std::vector<BBox> parkings = {});
         std::vector<BBox> detect(const cv::Mat &frame);
         std::vector<BBox> numberParkings(const std::vector<BBox> parkings);
         void draw(const cv::Mat &frame, const std::vector<BBox> parkings);

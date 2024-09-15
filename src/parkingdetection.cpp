@@ -1,8 +1,5 @@
 #include "parkingdetection.h"
 
-ParkingDetection::ParkingDetection(std::vector<BBox> parkings) : parkings(parkings) {}
-
-
 // Utility function to compute the dot product of two vectors
 double ParkingDetection::dotProduct(const cv::Point2f& a, const cv::Point2f& b) {
     return a.x * b.x + a.y * b.y;
@@ -101,9 +98,8 @@ PARAM:
     angleOffset: offset respect the mean for considering a line in a group
 */
 std::vector<cv::Vec4f> ParkingDetection::filterLinesByKMeans(const std::vector<cv::Vec4f>& lines, int K, double angleOffset) {
-    if (lines.empty() || K <= 0) {
+    if (lines.empty() || K <= 0)
         return {}; 
-    }
 
     // Calculate the angle of each line
     std::vector<float> angles;
@@ -123,9 +119,8 @@ std::vector<cv::Vec4f> ParkingDetection::filterLinesByKMeans(const std::vector<c
         float angle = angles[i];
         float center = centers.at<float>(labels.at<int>(i), 0);
 
-        if (std::abs(angle - center) <= angleOffset) {
+        if (std::abs(angle - center) <= angleOffset)
             filteredLines.push_back(lines[i]);
-        }
     }
 
     return filteredLines;
@@ -138,9 +133,8 @@ PARAM:
 */
 
 cv::Vec4f ParkingDetection::mergeLines(const std::vector<cv::Vec4f>& lines) {
-     if (lines.empty()) {
-        return cv::Vec4f(); // Return an empty line if there are no lines in the input
-    }
+     if (lines.empty())
+        return cv::Vec4f();
 
     // Initialize variables to track the maximum distance and corresponding points
     double maxDist = 0;
@@ -241,11 +235,14 @@ PARAM:
 cv::Point2f ParkingDetection::closestPointOnSegment(const cv::Point2f &P, const cv::Vec4f &segment) {
     cv::Point2f A(segment[0], segment[1]);
     cv::Point2f B(segment[2], segment[3]);
+    
     cv::Point2f AP = P - A;
     cv::Point2f AB = B - A;
+   
     float ab2 = AB.x * AB.x + AB.y * AB.y;
     float ap_ab = AP.x * AB.x + AP.y * AB.y;
     float t = ap_ab / ab2;
+   
     t = std::min(std::max(t, 0.0f), 1.0f);
     return A + AB * t;
 }
@@ -342,13 +339,10 @@ cv::Vec4f ParkingDetection::mergeLineSegments(const cv::Vec4f &line_i, const cv:
     double orientation_r;
 
     if (std::abs(orientation_i - orientation_j) <= CV_PI / 2)
-    {
         orientation_r = (line_i_length * orientation_i + line_j_length * orientation_j) / (line_i_length + line_j_length);
-    }
     else
-    {
         orientation_r = (line_i_length * orientation_i + line_j_length * (orientation_j - CV_PI * orientation_j / std::abs(orientation_j))) / (line_i_length + line_j_length);
-    }
+    
 
     // Coordinate transformation
     double a_x_g = (line_i[1] - Yg) * std::sin(orientation_r) + (line_i[0] - Xg) * std::cos(orientation_r);
@@ -386,9 +380,7 @@ PARAM:
 cv::Vec4f ParkingDetection::mergeLineCluster(const std::vector<cv::Vec4f> &cluster) {
     cv::Vec4f merged = cluster[0];
     for (int i = 1; i < cluster.size(); i++)
-    {
         merged = mergeLineSegments(merged, cluster[i]);
-    }
 
     return merged;
 }
@@ -429,10 +421,9 @@ std::vector<cv::Vec4f> ParkingDetection::divideLongLines(const std::vector<cv::V
 
             // Second part of the line
             dividedLines.push_back(cv::Vec4f(adjustedP2.x, adjustedP2.y, p2.x, p2.y));
-        } else {
+        } else 
             // If the line is short enough, keep it as it is
             dividedLines.push_back(line);
-        }
     }
 
     return dividedLines;
@@ -527,9 +518,8 @@ bool ParkingDetection::isBBoxInsideImage(const cv::RotatedRect& bbox, int image_
     // Check if all vertices are within the image boundaries
     for (int i = 0; i < 4; i++) {
         if (vertices[i].x < 0 || vertices[i].x >= image_width ||   // Check if x is within the image width
-            vertices[i].y < 0 || vertices[i].y >= image_height) {  // Check if y is within the image height
+            vertices[i].y < 0 || vertices[i].y >= image_height)    // Check if y is within the image height
             return false;  // If any vertex is outside the image, return false
-        }
     }
 
     return true;  // If all vertices are inside, return true
@@ -605,17 +595,15 @@ std::vector<BBox> ParkingDetection::createBoundingBoxes(cv::Mat frame, const std
         for (int j = 0; j < lines.size(); j++) {
             if (i == j) continue;
 
-            if (used_pairs.count(std::make_pair(i, j)) || used_pairs.count(std::make_pair(j, i))) {
+            if (used_pairs.count(std::make_pair(i, j)) || used_pairs.count(std::make_pair(j, i)))
                 continue;
-            }
 
             double distance = distanceBetweenSegments2(lines[i], lines[j]);
             double angle1 = calculateAngle(lines[i]);
             double angle2 = calculateAngle(lines[j]);
 
-            if (distance > minDistanceThreshold && distance < maxDistanceThreshold && std::abs(angle1 - angle2) < maxAngleThreshold) {
+            if (distance > minDistanceThreshold && distance < maxDistanceThreshold && std::abs(angle1 - angle2) < maxAngleThreshold)
                 candidates.push_back(std::make_pair(j, distance));
-            }
         }
 
         bool found_valid_rectangle = false;
@@ -883,9 +871,17 @@ std::vector<BBox> ParkingDetection::filterBoundingBoxesByIntersection(std::vecto
     return filteredBBoxes;
 }
 
+/*
+Increase the length of the short lines
+PARAM:
+    lines: input lines
+    threshold: maximun length acceptable to increase a line's length
+*/
+
+
 std::vector<cv::Vec4f> ParkingDetection::enforceShortLines(std::vector<cv::Vec4f> lines, double threshold) {
     std::vector<cv::Vec4f> new_lines;
-    for (const auto& line : lines){
+    for (const auto& line : lines) {
         cv::Vec4f new_line = line;
         double length = calculateLength(line);
         if(length < threshold) {
@@ -912,21 +908,22 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     cv::Mat adaptive;
     cv::adaptiveThreshold(gray, adaptive, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, 3, -8);
 
+
+    // Create a LineSegmentDetector object
     cv::Ptr<cv::LineSegmentDetector> lsd = cv::createLineSegmentDetector(cv::LSD_REFINE_ADV, 0.6, 1);
 
     std::vector<cv::Vec4f> lines;
     lsd->detect(adaptive, lines);
 
     // Sort the line's vertices based on their position in the image
-    for (cv::Vec4f &line : lines)
-    {
-        if (line[0] > line[2])
-        {
+    for (cv::Vec4f &line : lines) {
+        if (line[0] > line[2]) {
             std::swap(line[0], line[2]);
             std::swap(line[1], line[3]);
         }
     }
 
+    // Merge the similar lines
     std::vector<int> labels;
     int numComponents = cv::partition(lines, labels, [&](const cv::Vec4i &l1, const cv::Vec4i &l2)
                                       { return areParallelAndClose(l1, l2, 5, 10); });
@@ -985,6 +982,8 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     double minAreaThreshold = 100;
     double maxAreaThreshold = 20000;
 
+
+    // Detect the Bounding Boxes (parking spots)
     std::vector<BBox> boundingBoxes = createBoundingBoxes(frame, lines, minDistanceThreshold, maxDistanceThreshold, maxAngleThreshold, minAreaThreshold, maxAreaThreshold);
 
     // Remove duplicate BBox objects
@@ -995,9 +994,8 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     boundingBoxes = filterBoundingBoxesByIntersection(boundingBoxes, intersectionThreshold);
     
     
-    // Reduce the size of the BBoxes
-    for (BBox &bbox : boundingBoxes)
-    {
+    // Adjust the size of the BBoxes
+    for (BBox &bbox : boundingBoxes) {
         bbox.setWidth(bbox.getWidth() * 0.9);
         bbox.setHeight(bbox.getHeight() * 1.3);
     }
@@ -1025,6 +1023,7 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     return numberParkings(boundingBoxes);
 
 }
+
 
 std::vector<BBox> ParkingDetection::sortParkingsForFindId(const std::vector<BBox> parkings) {
     std::vector<BBox> parkings_copy;
@@ -1101,19 +1100,9 @@ std::vector<BBox> ParkingDetection::numberParkings(const std::vector<BBox> parki
     return parkings_copy;
 }
 
+
+
 void ParkingDetection::draw(const cv::Mat &frame, const std::vector<BBox> parkings) {
-    for (const BBox& parking : parkings) {
-        cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
-        cv::Point2f vertices[4];
-        rotatedRect.points(vertices);
-        for (int i = 0; i < 4; i++)
-            cv::line(frame, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 0), 2);
-        
-    }
-}
-
-
-void ParkingDetection::drawColored(const cv::Mat &frame, const std::vector<BBox> parkings) {
     for (const BBox& parking : parkings) {
         cv::RotatedRect rotatedRect(cv::Point(parking.getX(), parking.getY()), cv::Size(parking.getWidth(), parking.getHeight()), parking.getAngle());
         cv::Point2f vertices[4];

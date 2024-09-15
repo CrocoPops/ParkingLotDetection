@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
         ParkingDetection pd;
 
         std::vector<BBox> current_detected = pd.detect(current_image);
-        pd.drawColored(current_image, current_detected);
+        pd.draw(current_image, current_detected);
         detected.push_back(current_detected);
 
         float current_mAP = computeMAP(current_detected, realBBoxes[0][i], 0.5);
@@ -92,7 +92,7 @@ int main(int argc, char** argv) {
 
             // Drawing colored parkings
             ParkingDetection pd;
-            pd.drawColored(current_image, bestDetectedBBoxes);
+            pd.draw(current_image, bestDetectedBBoxes);
 
             // Drawing parkings + segmentation
             cv::Mat maskedParkingsImage;

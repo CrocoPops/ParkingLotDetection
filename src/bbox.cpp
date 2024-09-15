@@ -66,49 +66,6 @@ void BBox::setOccupied(bool occupied) {
     this->occupied = occupied;
 }
 
-void BBox::setOccupied(cv::Mat &mask) {
-    int x = this->getX();
-    int y = this->getY();
-
-    // Clone the mask to create a colored version for visualization purposes
-    cv::Mat coloredMask = mask.clone();
-    coloredMask.setTo(cv::Scalar(128, 128, 128), mask == 0);
-    coloredMask.setTo(cv::Scalar(0, 0, 255), mask == 1);
-    coloredMask.setTo(cv::Scalar(0, 255, 0), mask == 2);
-   
-    // Check if the pixel at the center is occupied
-    cv::Scalar centerColor = coloredMask.at<cv::Vec3b>(y, x);
-    if(centerColor == cv::Scalar(128, 128, 128)) {
-        bool occupied = false;
-
-        // Check the neighbors pixels from the center
-        int radius = 3;
-        for (int dy = -radius; dy <= radius; dy++) {
-            for (int dx = -radius; dx <= radius; dx++) {
-                int nx = x + dx;
-                int ny = y + dy;
-                if (nx >= 0 && nx < mask.cols && ny >= 0 && ny < mask.rows) {
-                    cv::Scalar neighborColor = coloredMask.at<cv::Vec3b>(ny, nx);
-                    if (neighborColor != cv::Scalar(128, 128, 128)) {
-                        occupied = true;
-                        break;
-                    }
-                    
-                }
-            }
-            if (occupied) {
-                break;
-            }
-        }
-        
-        this->occupied = occupied;
-    } else {
-        // If the center pixel is not (128, 128, 128), it is occupied
-        this->occupied = true;
-    }
-}
-
-
 void BBox::setOccupiedfromObtainedMask(cv::Mat &mask) {
     int x = this->getX();
     int y = this->getY();
@@ -120,10 +77,12 @@ void BBox::setOccupiedfromObtainedMask(cv::Mat &mask) {
     cv::Point2f vertices[4];
     rect.points(vertices);
 
+    // Convert the vertices to integer
     cv::Point intVertices[4];
     for (int i = 0; i < 4; i++)
         intVertices[i] = cv::Point(static_cast<int>(vertices[i].x), static_cast<int>(vertices[i].y));
 
+    // Create a mask in the ROI of the BBox considered
     cv::Mat roiMask = cv::Mat::zeros(mask.size(), CV_8UC1);
     cv::fillConvexPoly(roiMask, intVertices, 4, cv::Scalar(255));
 
@@ -141,7 +100,6 @@ void BBox::setOccupiedfromObtainedMask(cv::Mat &mask) {
     bool occupiedArea = (whitePixelRatio > whitePixelThreshold);
 
     // Now we check if the center of the bounding box is occupied
-    // Check if the pixel at the center is occupied
     uchar centerColor = mask.at<uchar>(y, x);
     bool occupiedCenter;
     if(centerColor == 0) {
