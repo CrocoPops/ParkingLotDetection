@@ -1,3 +1,5 @@
+// Author: Davide Ferrari, ID: 2122542
+
 #ifndef METRICS_H
 #define METRICS_H
 
@@ -5,7 +7,7 @@
 #include "bbox.h"
 
 float computeIoU(const BBox& box1, const BBox& box2);
-float computeIoU(const cv::Mat mask1, const cv::Mat mask2);
+float computeMIoU(const cv::Mat mask1, const cv::Mat mask2);
 float computeAveragePrecision(const std::vector<float>& recalls, const std::vector<float>& precisions);
 float computeMAP(const std::vector<BBox>& detections, const std::vector<BBox>& ground_truths, float iouThreshold);
 

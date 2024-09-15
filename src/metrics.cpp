@@ -1,5 +1,14 @@
+// Author: Davide Ferrari, ID: 2122542
+
 #include "metrics.h"
 
+/**
+ * Given two bounding boxes, return their insersection over union.
+ * 
+ * @param box1 First boundign box.
+ * @param box2 Second bounding box.
+ * @return Intersection over union (float).
+ */
 float computeIoU(const BBox& box1, const BBox& box2) {
     cv::RotatedRect rect1 = box1.getRotatedRect();
     cv::RotatedRect rect2 = box2.getRotatedRect();
@@ -21,6 +30,13 @@ float computeIoU(const BBox& box1, const BBox& box2) {
     return bbox_intersection / bbox_union;
 }
 
+/**
+ * Given a target color and a mask, return a new binary mask where only that color in the mask is white and other things are black.
+ * 
+ * @param mask Input mask.
+ * @param color Target color.
+ * @return Binary mask that is white only where the input mask is target color.
+ */
 cv::Mat convertMask(const cv::Mat mask, const cv::Scalar color) {
 
     cv::Mat new_mask;
@@ -29,7 +45,14 @@ cv::Mat convertMask(const cv::Mat mask, const cv::Scalar color) {
     return new_mask;
 }
 
-float computeIoU(const cv::Mat mask, const cv::Mat ground_truth) {
+/**
+ * Given two mask, return their mean intersection over union (mIoU).
+ * 
+ * @param mask Detected mask.
+ * @param ground_truth Real mask.
+ * @return mIoU score.
+ */
+float computeMIoU(const cv::Mat mask, const cv::Mat ground_truth) {
 
     // Per ogni classe, vogliamo il bianco dove ci importa
 
@@ -72,6 +95,13 @@ float computeIoU(const cv::Mat mask, const cv::Mat ground_truth) {
     return IoUs / 3.0f;
 }
 
+/**
+ * Perform 11-interpolation on precision-recall curve.
+ * 
+ * @param recalls Vector of recalls.
+ * @param precisions Vector of precisions.
+ * @return Average precision obtained by 11-interpolation.
+ */
 float computeAveragePrecision(const std::vector<float>& recalls, const std::vector<float>& precisions) {
 
     // Define the 11-point recall levels
@@ -99,7 +129,14 @@ float computeAveragePrecision(const std::vector<float>& recalls, const std::vect
     return ap;
 }
 
-
+/**
+ * Given two vectors of bounding boxes and a threshold, return the mAP score.
+ * 
+ * @param detections Detected bounding boxes.
+ * @param ground_truths Real bounding boxes.
+ * @param iouThreshold Threshold for the IoU to be considered true positive or false positive.
+ * @return mAP score.
+ */
 float computeMAP(const std::vector<BBox>& detections, const std::vector<BBox>& ground_truths, float iouThreshold = 0.5) {
 
     float aps = 0.0;

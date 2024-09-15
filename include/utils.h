@@ -5,10 +5,9 @@
 #include <vector>
 #include "bbox.h"
 
-
-// Define here the utility functions
-void drawRotatedRectangle(cv::Mat& image, cv::RotatedRect rect, bool occupied, bool filled);
-std::vector<BBox> parseParkingXML(const std::string& filename);
+namespace parsers {
+    std::vector<BBox> parseParkingXML(const std::string& filename);
+}
 
 namespace loaders {
     int loadAllFrames(std::vector<std::vector<cv::Mat>>& output);
