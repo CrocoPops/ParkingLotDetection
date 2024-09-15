@@ -26,7 +26,7 @@ float computeIoU(const BBox& box1, const BBox& box2) {
     double area1 = rect1.size.area();
     double area2 = rect2.size.area();
     double bbox_union = (area1 + area2 - bbox_intersection);
-
+    
     return bbox_intersection / bbox_union;
 }
 
@@ -184,9 +184,14 @@ float computeMAP(const std::vector<BBox>& detections, const std::vector<BBox>& g
             true_positives.push_back(best_iou > iouThreshold);
         }
 
-        // If true_positives is empty, it means that we have no true positive so our mAP is 0
-        if (true_positives.empty())
+        // If true_positives is empty and num_parkings of this class from ground thruth are 0, it means that we have a perfect detection, AP = 1
+        if (true_positives.empty() && num_parkings == 0) {
             aps += 1.0f;
+            continue;
+        }
+        else if (true_positives.empty()) // num_parkings > 0 but no detection, AP = 0
+            continue;
+                  
 
         // Calculating the precisions and recalls
         int cum_true_positives = 0;
