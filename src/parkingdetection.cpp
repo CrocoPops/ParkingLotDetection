@@ -1,3 +1,5 @@
+// Author: Matteo Manuzzato, ID: 2119283
+
 #include "parkingdetection.h"
 
 // Utility function to compute the dot product of two vectors

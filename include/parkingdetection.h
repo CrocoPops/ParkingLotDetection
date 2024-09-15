@@ -1,3 +1,5 @@
+// Author: Matteo Manuzzato, ID: 2119283
+
 #ifndef PARKINGDETECTION_H
 #define PARKINGDETECTION_H
 

@@ -1,3 +1,5 @@
+// Author: Matteo Manuzzato, ID: 2119283
+
 #ifndef BBOX_H
 #define BBOX_H
 

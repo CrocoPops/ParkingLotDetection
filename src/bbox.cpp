@@ -1,3 +1,5 @@
+// Author: Matteo Manuzzato, ID: 2119283
+
 #include "bbox.h"
 
 BBox::BBox(int x, int y, int width, int height, double angle, bool occupied) : x(x), y(y), width(width), height(height), angle(angle), occupied(occupied) {}
