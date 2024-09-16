@@ -1,3 +1,5 @@
+// Author: Eddy Frighetto, ID: 2119279
+
 #ifndef VISUALIZATIONMAP_H
 #define VISUALIZATIONMAP_H
 

@@ -1,3 +1,5 @@
+// Author: Eddy Frighetto, ID: 2119279
+
 #include "visualizationmap.h"
 #include <opencv2/opencv.hpp>
 
