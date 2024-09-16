@@ -120,11 +120,11 @@ int main(int argc, char** argv) {
 
             // Saving images
             if(argc > 1 && strcmp(argv[0], "--save")) {
-                savers::saveImage(current_image, "output/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/parkings.jpg");
-                savers::saveImage(parkingsWithMap, "output/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/map.jpg");
-                savers::saveImage(maskedImage, "output/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/segmented.jpg");
+                savers::saveImage(current_image, "results/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/parkings.jpg");
+                savers::saveImage(parkingsWithMap, "results/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/map.jpg");
+                savers::saveImage(maskedImage, "results/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/segmented.jpg");
 
-                savers::saveMetrics(mAP, mIoU, "output/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/metrics.txt");
+                savers::saveMetrics(mAP, mIoU, "results/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/metrics.txt");
             }
         }
     }
