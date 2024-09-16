@@ -20,12 +20,14 @@ cv::Point2f ParkingDetection::projectPointOntoLineSegment(const cv::Point2f& p, 
     return a + t * ab;
 }
 
-/*
-Calculate the distance between two lines
-PARAM:
-    line1: first line
-    line2: second line
-*/
+
+/**
+ * Calculate the distance between two lines.
+ * 
+ * @param line1 first line.
+ * @param ground_truth second line.
+ * @return distance between two lines.
+ */
 double ParkingDetection::calculateDistance(const cv::Vec4i& line1, const cv::Vec4i& line2) {
     cv::Point2f p1(line1[0], line1[1]);
     cv::Point2f p2(line1[2], line1[3]);
@@ -45,11 +47,12 @@ double ParkingDetection::calculateDistance(const cv::Vec4i& line1, const cv::Vec
     return minDist;
 }
 
-/*
-Calculate the length of a line
-PARAM:
-    line: input line
-*/
+/**
+ * Calculate the length of a line.
+ * 
+ * @param line input line.
+ * @return length of the line.
+ */
 
 double ParkingDetection::calculateLength(const cv::Vec4f& line) {
     cv::Point2f p1(line[0], line[1]);
@@ -58,12 +61,13 @@ double ParkingDetection::calculateLength(const cv::Vec4f& line) {
     return cv::norm(p1 - p2);
 }
 
-/*
-Delete short lines
-PARAM:
-    lines: input lines
-    minLength: minimum length of the line to keep
-*/
+
+/**
+ * Delete short lines.
+ * 
+ * @param lines input lines.
+ * @param minLength minimum length of the line to keep.
+ */
 
 std::vector<cv::Vec4f> ParkingDetection::deleteShortLines(const std::vector<cv::Vec4f> lines, double minLength) {
     std::vector<cv::Vec4f> result;
@@ -81,24 +85,27 @@ std::vector<cv::Vec4f> ParkingDetection::deleteShortLines(const std::vector<cv::
 }
 
 
-/*
-Compute the angle of a line
-PARAM:
-    line: input line
-*/
+/**
+ * Calculate the angle of a line.
+ * 
+ * @param line input line.
+ * @return angle of the line.
+ */
 double ParkingDetection::calculateAngle(const cv::Vec4f& line) {
     double dy = line[3] - line[1];
     double dx = line[2] - line[0];
     return std::atan2(dy, dx) * 180.0 / CV_PI; // Angle in degrees
 }
 
-/*
-Find K mean values of similar lines by angle and filter them
-PARAM:
-    lines: set of input lines
-    K: # groups of lines by angle
-    angleOffset: offset respect the mean for considering a line in a group
-*/
+
+/**
+ * Find K mean values of similar lines by angle and filter them.
+ * 
+ * @param lines set of input lines.
+ * @param K # groups of lines by angle.
+ * @param angleOffset offset respect the mean for considering a line in a group.
+ */
+
 std::vector<cv::Vec4f> ParkingDetection::filterLinesByKMeans(const std::vector<cv::Vec4f>& lines, int K, double angleOffset) {
     if (lines.empty() || K <= 0)
         return {}; 
@@ -128,12 +135,13 @@ std::vector<cv::Vec4f> ParkingDetection::filterLinesByKMeans(const std::vector<c
     return filteredLines;
 }
 
-/*
-Merge two lines into a single line
-PARAM:
-    lines: vector containing the two lines to be merged
-*/
 
+/**
+ * Merge two lines into a single line.
+ * 
+ * @param lines input lines.
+ * @return merged line.
+ */
 cv::Vec4f ParkingDetection::mergeLines(const std::vector<cv::Vec4f>& lines) {
      if (lines.empty())
         return cv::Vec4f();
@@ -186,15 +194,16 @@ cv::Vec4f ParkingDetection::mergeLines(const std::vector<cv::Vec4f>& lines) {
     return cv::Vec4f(p1_max.x, p1_max.y, p2_max.x, p2_max.y);
 }
 
-/*
-Unify similar lines by distance, angle, and length
-PARAM:
-    lines: input lines
-    distanceThreshold: maximum distance between two lines to be considered similar
-    angleThreshold: maximum angle difference between two lines to be considered similar
-    lengthThreshold: maximum length difference between two lines to be considered similar
-*/
 
+/**
+ * Unify similar lines by distance, angle, and length.
+ * 
+ * @param lines input lines.
+ * @param distanceThreshold maximum distance between two lines to be considered similar.
+ * @param angleThreshold maximum angle difference between two lines to be considered similar.
+ * @param lengthThreshold maximum length difference between two lines to be considered similar.
+ * @return unified lines.
+ */
 std::vector<cv::Vec4f> ParkingDetection::unifySimilarLines(const std::vector<cv::Vec4f>& lines, double distanceThreshold, double angleThreshold, double lengthThreshold) {
     std::vector<cv::Vec4f> result;
     std::vector<bool> merged(lines.size(), false);
@@ -227,13 +236,13 @@ std::vector<cv::Vec4f> ParkingDetection::unifySimilarLines(const std::vector<cv:
     return result;
 }
 
-/*
-Find the closest neighbor point of each line
-PARAM:
-    P: input point
-    segments: input segments
-*/
-
+/**
+ * Find the closest neighbor point of each line.
+ * 
+ * @param P input point.
+ * @param segments input segments.
+ * @return closest neighbor point of each line.
+ */
 cv::Point2f ParkingDetection::closestPointOnSegment(const cv::Point2f &P, const cv::Vec4f &segment) {
     cv::Point2f A(segment[0], segment[1]);
     cv::Point2f B(segment[2], segment[3]);
@@ -250,13 +259,13 @@ cv::Point2f ParkingDetection::closestPointOnSegment(const cv::Point2f &P, const 
 }
 
 
-/*
-Compute the distance between two segments
-PARAM:
-    seg1: first segment
-    seg2: second segment
-*/
-
+/**
+ * Compute the distance between two segments.
+ * 
+ * @param seg1 first segment.
+ * @param seg2 second segment.
+ * @return distance between two segments.
+ */
 float ParkingDetection::distanceBetweenSegments(const cv::Vec4f &seg1, const cv::Vec4f &seg2) {
     cv::Point2f A(seg1[0], seg1[1]);
     cv::Point2f B(seg1[2], seg1[3]);
@@ -279,12 +288,13 @@ float ParkingDetection::distanceBetweenSegments(const cv::Vec4f &seg1, const cv:
 }
 
 
-/*
-Compute the distance between two segments, using the Euclidean distance between the midpoints
-PARAM:
-    seg1: first segment
-    seg2: second segment
-*/
+/**
+ * Compute the distance between the two midpoints of each segment.
+ * 
+ * @param seg1 first segment.
+ * @param seg2 second segment.
+ * @return distance between the two midpoints.
+ */
 
 float ParkingDetection::distanceBetweenSegments2(const cv::Vec4f &seg1, const cv::Vec4f &seg2) {
     cv::Point2f mid1((seg1[0] + seg1[2]) / 2, (seg1[1] + seg1[3]) / 2); // Midpoint of seg1
@@ -297,16 +307,15 @@ float ParkingDetection::distanceBetweenSegments2(const cv::Vec4f &seg1, const cv
 }
 
 
-
-/*
-Check if two lines are parallel and close
-PARAM:
-    line1: first line
-    line2: second line
-    angleThreshold: maximum angle difference to consider the lines parallel
-    distanceThreshold: maximum distance between the lines to consider them close
-*/
-
+/**
+ * Check if two lines are parallel and close.
+ * 
+ * @param line1 first line.
+ * @param line2 second line.
+ * @param angleThreshold maximum angle difference to consider the lines parallel.
+ * @param distanceThreshold maximum distance between the lines to consider them close.
+ * @return true if the lines are parallel and close, false otherwise.
+ */
 bool ParkingDetection::areParallelAndClose(const cv::Vec4f &line1, const cv::Vec4f &line2, double angleThreshold, double distanceThreshold) {
     double angle1 = calculateAngle(line1);
     double angle2 = calculateAngle(line2);
@@ -315,14 +324,13 @@ bool ParkingDetection::areParallelAndClose(const cv::Vec4f &line1, const cv::Vec
     return std::fabs(angle1 - angle2) < angleThreshold && vertexDistance < distanceThreshold;
 }
 
-
-/*
-Merge two line segments into a single line segment
-PARAM:
-    line_i: first line segment
-    line_j: second line segment
-*/
-
+/**
+ * Merge two line segments into a single line segment.
+ * 
+ * @param line_i first line segment.
+ * @param line_j second line segment.
+ * @return merged line segment.
+ */
 cv::Vec4f ParkingDetection::mergeLineSegments(const cv::Vec4f &line_i, const cv::Vec4f &line_j) {
     // Calculate the lengths of the lines
     double line_i_length = calculateLength(line_i);
@@ -373,12 +381,13 @@ cv::Vec4f ParkingDetection::mergeLineSegments(const cv::Vec4f &line_i, const cv:
     return cv::Vec4f(start_x, start_y, end_x, end_y);
 }
 
-/*
-Merge a cluster of line segments into a single line segment
-PARAM:
-    cluster: vector of line segments to merge
-*/
 
+/**
+ * Merge a cluster of line segments into a single line segment.
+ * 
+ * @param cluster vector of line segments to merge.
+ * @return merged line segment of the cluster.
+ */
 cv::Vec4f ParkingDetection::mergeLineCluster(const std::vector<cv::Vec4f> &cluster) {
     cv::Vec4f merged = cluster[0];
     for (int i = 1; i < cluster.size(); i++)
@@ -387,16 +396,14 @@ cv::Vec4f ParkingDetection::mergeLineCluster(const std::vector<cv::Vec4f> &clust
     return merged;
 }
 
-
-/*
-Divide long lines into two shorter lines with a hole in the middle
-PARAM:
-    lines: input lines
-    max_length: maximum length of the line
-    offset: distance between the two smaller lines
-*/
-
-
+/**
+ * Divide long lines into two shorter lines with a hole in the middle.
+ * 
+ * @param lines input lines.
+ * @param max_length maximum length of the line.
+ * @param offset distance between the two smaller lines.
+ * @return divided lines.
+ */
 std::vector<cv::Vec4f> ParkingDetection::divideLongLines(const std::vector<cv::Vec4f> &lines, double max_length, double offset) {
      std::vector<cv::Vec4f> dividedLines;
 
@@ -431,13 +438,13 @@ std::vector<cv::Vec4f> ParkingDetection::divideLongLines(const std::vector<cv::V
     return dividedLines;
 }
 
-/*
-Compare two lines based on their starting points
-PARAM:
-    line1: first line
-    line2: second line
-*/
-
+/**
+ * Compare two lines based on their starting points.
+ * 
+ * @param line1 first line.
+ * @param line2 second line.
+ * @return true if line1 is less than line2, false otherwise.
+ */
 bool ParkingDetection::compareLines(const cv::Vec4f& line1, const cv::Vec4f& line2) {
     // Extract starting points
     cv::Point2f start1(line1[0], line1[1]);
@@ -449,12 +456,12 @@ bool ParkingDetection::compareLines(const cv::Vec4f& line1, const cv::Vec4f& lin
     return start1.x < start2.x;
 }
 
-/*
-Sort lines based on their starting points
-PARAM:
-    lines: input lines
-*/
-
+/**
+ * Sort lines based on their starting points.
+ * 
+ * @param lines input lines.
+ * @return sorted lines.
+ */
 std::vector<cv::Vec4f> ParkingDetection::sortLines(const std::vector<cv::Vec4f>& lines) {
     std::vector<cv::Vec4f> sorted_lines = lines;
     std::sort(sorted_lines.begin(), sorted_lines.end(), compareLines);
@@ -462,13 +469,13 @@ std::vector<cv::Vec4f> ParkingDetection::sortLines(const std::vector<cv::Vec4f>&
 }
 
 
-/*
-Function to mirror line2 across line1 (as the axis of symmetry)
-PARAM:
-    axis: axis of symmetry (line1)
-    line_to_mirror: line to mirror (line2)
-*/
-
+/**
+ * Mirror line2 across line1 (as the axis of symmetry).
+ * 
+ * @param axis axis of symmetry (line1).
+ * @param line_to_mirror line to mirror (line2).
+ * @return mirrored line.
+ */
 cv::Vec4f ParkingDetection::mirrorLineAcrossAxis(const cv::Vec4f& axis, const cv::Vec4f& line_to_mirror) {
     // Extract points from the line segments
     cv::Point2f A1(axis[0], axis[1]); // Start point of axis line
@@ -504,14 +511,14 @@ cv::Vec4f ParkingDetection::mirrorLineAcrossAxis(const cv::Vec4f& axis, const cv
 }
 
 
-/*
-Check if a bounding box is inside an image
-PARAM:
-    bbox: rotated rectangle representing the bounding box
-    image_width: width of the image
-    image_height: height of the image
-*/
-
+/**
+ * Check if a bounding box is inside an image.
+ * 
+ * @param bbox rotated rectangle representing the bounding box.
+ * @param image_width width of the image.
+ * @param image_height height of the image.
+ * @return true if the bounding box is inside the image, false otherwise.
+ */
 bool ParkingDetection::isBBoxInsideImage(const cv::RotatedRect& bbox, int image_width, int image_height) {
     // Get the four vertices of the rotated rectangle
     cv::Point2f vertices[4];
@@ -528,15 +535,15 @@ bool ParkingDetection::isBBoxInsideImage(const cv::RotatedRect& bbox, int image_
 }
 
 
-/*
-Check if the content inside two rectangles is equal
-PARAM:
-    mirroredRect: rotated rectangle representing the mirrored rectangle
-    realRect: rotated rectangle representing the real rectangle
-    frame: input frame
-    threshold: threshold for the difference in mean pixel values
-*/
-
+/**
+ * Check if the content inside two rectangles is equal.
+ * 
+ * @param mirroredRect rotated rectangle representing the mirrored rectangle.
+ * @param realRect rotated rectangle representing the real rectangle.
+ * @param frame input frame.
+ * @param threshold threshold for the difference in mean pixel values.
+ * @return true if the content inside the two rectangles is equal, false otherwise.
+ */
 bool ParkingDetection::isTheContentEqual(const cv::RotatedRect& mirroredRect, const cv::RotatedRect& realRect, const cv::Mat& frame, double threshold) {
     // Get bounding boxes for the two rectangles (mirrored and real)
     cv::Rect bbox_mirrored = mirroredRect.boundingRect();
@@ -572,18 +579,18 @@ bool ParkingDetection::isTheContentEqual(const cv::RotatedRect& mirroredRect, co
 }
 
 
-/*
-Create BBoxes from a set of lines
-PARAM:
-    frame: input frame
-    lines: input lines
-    minDistanceThreshold: minimum distance between two lines to consider them for a rectangle
-    maxDistanceThreshold: maximum distance between two lines to consider them for a rectangle
-    maxAngleThreshold: maximum angle difference between two lines to consider them for a rectangle
-    minAreaThreshold: minimum area of the rectangle
-    maxAreaThreshold: maximum area of the rectangle
-*/
-
+/**
+ * Create bounding boxes from a set of lines.
+ * 
+ * @param frame input frame.
+ * @param lines input lines.
+ * @param minDistanceThreshold minimum distance between two lines to consider them for a rectangle.
+ * @param maxDistanceThreshold maximum distance between two lines to consider them for a rectangle.
+ * @param maxAngleThreshold maximum angle difference between two lines to consider them for a rectangle.
+ * @param minAreaThreshold minimum area of the rectangle.
+ * @param maxAreaThreshold maximum area of the rectangle.
+ * @return vector of bounding boxes.
+ */
 std::vector<BBox> ParkingDetection::createBoundingBoxes(cv::Mat frame, const std::vector<cv::Vec4f>& lines, int minDistanceThreshold, int maxDistanceThreshold, int maxAngleThreshold, double minAreaThreshold, double maxAreaThreshold) {
     std::vector<BBox> bounding_boxes;
     std::set<std::pair<int, int>> used_pairs;
@@ -723,15 +730,15 @@ std::vector<BBox> ParkingDetection::createBoundingBoxes(cv::Mat frame, const std
 }
 
 
-/*
-Remove lines between others within a threshold distance (lines in the middle of two parking spots)
-PARAM:
-    lines: input lines
-    xdistanceThreshold: maximum distance in x-axis
-    ydistanceThreshold: maximum distance in y-axis
-    lengthThreshold: minimum length of the line to keep
-*/
-
+/**
+ * Remove lines between others within a threshold distance.
+ * 
+ * @param lines input lines.
+ * @param xdistanceThreshold maximum distance in x-axis.
+ * @param ydistanceThreshold maximum distance in y-axis.
+ * @param lengthThreshold minimum length of the line to keep.
+ * @return filtered lines.
+ */
 std::vector<cv::Vec4f> ParkingDetection::removeLinesBetween(const std::vector<cv::Vec4f>& lines, double xdistanceThreshold, double ydistanceThreshold, double lengthThreshold) {
     std::vector<cv::Vec4f> filteredLines = lines;
     for(int i = 0; i < filteredLines.size(); i++) {
@@ -758,13 +765,13 @@ std::vector<cv::Vec4f> ParkingDetection::removeLinesBetween(const std::vector<cv
     return filteredLines;
 }
 
-/*
-Check if two BBox objects are equal
-PARAM:
-    bbox1: first BBox
-    bbox2: second BBox
-*/
-
+/**
+ * Check if two BBox objects are equal.
+ * 
+ * @param bbox1 first BBox.
+ * @param bbox2 second BBox.
+ * @return true if the BBox objects are equal, false otherwise.
+ */
 bool ParkingDetection::areBoxesEqual(const BBox& bbox1, const BBox& bbox2) {
     return bbox1.getX() == bbox2.getX() &&
            bbox1.getY() == bbox2.getY() &&
@@ -774,13 +781,12 @@ bool ParkingDetection::areBoxesEqual(const BBox& bbox1, const BBox& bbox2) {
 }
 
 
-/*
-Remove duplicate BBox objects
-PARAM:
-    bboxes: input vector of BBox objects
-*/
-
-
+/**
+ * Remove duplicate BBox objects.
+ * 
+ * @param bboxes input vector of BBox objects.
+ * @return vector of unique BBox objects.
+ */
 std::vector<BBox> ParkingDetection::getUniqueBoundingBoxes(const std::vector<BBox>& bboxes) {
     // Copy the input vector
     std::vector<BBox> uniqueBBoxes = bboxes;
@@ -803,13 +809,14 @@ std::vector<BBox> ParkingDetection::getUniqueBoundingBoxes(const std::vector<BBo
     return uniqueBBoxes;
 }
 
-/*
-Compute the area of intersection between two bounding boxes
-PARAM:
-    bbox1: first bounding box
-    bbox2: second bounding box
-*/
 
+/**
+ * Compute the area of intersection between two bounding boxes.
+ * 
+ * @param bbox1 first bounding box.
+ * @param bbox2 second bounding box.
+ * @return area of intersection.
+ */
 double ParkingDetection::getIntersectionArea(const BBox& bbox1, const BBox& bbox2) {
     // Create bounding boxes as Rects
     cv::Rect rect1(bbox1.getX(), bbox1.getY(), bbox1.getWidth(), bbox1.getHeight());
@@ -822,14 +829,14 @@ double ParkingDetection::getIntersectionArea(const BBox& bbox1, const BBox& bbox
     return intersection.area();
 }
 
-/*
-Remove smaller BBox if intersection area exceeds threshold
-PARAM:
-    bboxes: input vector of BBox objects
-    threshold: threshold for the intersection area
-*/
 
-
+/**
+ * Remove smaller BBox if intersection area exceeds threshold.
+ * 
+ * @param bboxes input vector of BBox objects.
+ * @param threshold threshold for the intersection area.
+ * @return vector of filtered BBox objects.
+ */
 std::vector<BBox> ParkingDetection::filterBoundingBoxesByIntersection(std::vector<BBox>& bboxes, double threshold) {
     std::vector<BBox> filteredBBoxes;
     
@@ -873,14 +880,14 @@ std::vector<BBox> ParkingDetection::filterBoundingBoxesByIntersection(std::vecto
     return filteredBBoxes;
 }
 
-/*
-Increase the length of the short lines
-PARAM:
-    lines: input lines
-    threshold: maximun length acceptable to increase a line's length
-*/
 
-
+/**
+ * Increase the length of the short lines.
+ * 
+ * @param lines input lines.
+ * @param threshold maximum length acceptable to increase a line's length.
+ * @return vector of lines with reinforced short lines.
+ */
 std::vector<cv::Vec4f> ParkingDetection::reinforceShortLines(std::vector<cv::Vec4f> lines, double threshold) {
     std::vector<cv::Vec4f> new_lines;
     for (const auto& line : lines) {
@@ -903,6 +910,12 @@ std::vector<cv::Vec4f> ParkingDetection::reinforceShortLines(std::vector<cv::Vec
     return new_lines;
 }
 
+/**
+ * Detect the parking spots in the input frame.
+ * 
+ * @param frame input frame.
+ * @return vector of BBox objects representing the detected parking spots.
+ */
 std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
@@ -1025,7 +1038,12 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
 
 }
 
-
+/**
+ * Sort the parking spots.
+ * 
+ * @param parkings input vector of BBox objects.
+ * @return sorted vector of BBox objects.
+ */
 std::vector<BBox> ParkingDetection::sortParkingsForFindId(const std::vector<BBox> parkings) {
     std::vector<BBox> parkings_copy;
     std::vector<BBox> parking_zone1;
@@ -1101,7 +1119,12 @@ std::vector<BBox> ParkingDetection::numberParkings(const std::vector<BBox> parki
     return parkings_copy;
 }
 
-
+/**
+ * Draw the parking spots on the input frame.
+ * 
+ * @param frame input frame.
+ * @param parkings vector of BBox objects representing the parking spots.
+ */
 
 void ParkingDetection::draw(const cv::Mat &frame, const std::vector<BBox> parkings) {
     for (const BBox& parking : parkings) {
@@ -1127,5 +1150,6 @@ void ParkingDetection::draw(const cv::Mat &frame, const std::vector<BBox> parkin
         else
             cv::putText(frame, text, cv::Point(textX, textY), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 0), 2);
     }
+
 }
 
