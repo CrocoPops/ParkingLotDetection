@@ -6,6 +6,13 @@ CarSegmentation::CarSegmentation() {}
 
 CarSegmentation::~CarSegmentation() {}
 
+/**
+ * Convert the ground truth mask to a colored mask.
+ * 
+ * @param frame Original frame.
+ * @param mask Ground truth mask.
+ * @return Colored mask.
+ */
 cv::Mat CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     cv::Mat coloredMask = mask.clone();
     coloredMask.setTo(cv::Scalar(128, 128, 128), mask == 0);
@@ -15,7 +22,13 @@ cv::Mat CarSegmentation::detectCarsTrue(cv::Mat &frame, cv::Mat &mask) {
     return coloredMask;
 }
 
-// Similarity based on the sum of absolute differences between the frame and the background
+/**
+ * Similarity based on the sum of absolute differences between the frame and the background.
+ * 
+ * @param frame Current frame.
+ * @param background Background to compare with.
+ * @return Similarity score.
+ */
 double CarSegmentation::computeSimilarity(const cv::Mat& frame, const cv::Mat& background) {
     cv::Mat diff;
     // Absolute difference between the frame and the background
@@ -27,6 +40,13 @@ double CarSegmentation::computeSimilarity(const cv::Mat& frame, const cv::Mat& b
 }
 
 // Return the background that is most similar to the current frame
+/**
+ * Background that is most similar to the current frame
+ * 
+ * @param frame Current frame.
+ * @param empty_parkings Bucket of empty parkings available.
+ * @return Best background.
+ */
 cv::Mat CarSegmentation::selectClosestBackground(cv::Mat &frame, std::vector<cv::Mat> empty_parkings) {
     double min_diff = std::numeric_limits<double>::max();
     cv::Mat best_background;
@@ -43,7 +63,15 @@ cv::Mat CarSegmentation::selectClosestBackground(cv::Mat &frame, std::vector<cv:
     return best_background;
 }
 
-// Filter contours based on area and by shape (aspect ratio), then apply morphological operations
+/**
+ * Refine the foreground mask by filtering contours based on area and by shape (aspect ratio).
+ * 
+ * @param fgMask Foreground mask.
+ * @param minArea Minimum area of the contour.
+ * @param minAspectRatio Minimum aspect ratio of the contour.
+ * @param maxAspectRatio Maximum aspect ratio of the contour.
+ * @return Refined mask.
+ */
 cv::Mat CarSegmentation::refineForegroundMask(const cv::Mat &fgMask, int minArea, double minAspectRatio, double maxAspectRatio) {
     cv::Mat refinedMask = fgMask.clone();
 
@@ -70,6 +98,13 @@ cv::Mat CarSegmentation::refineForegroundMask(const cv::Mat &fgMask, int minArea
     return finalMask;
 }
 
+/**
+ * Detect cars in the frame.
+ * 
+ * @param image Current frame.
+ * @param empty_parkings Bucket of empty parkings available.
+ * @return Mask containing the detected cars.
+ */
 cv::Mat CarSegmentation::detectCars(cv::Mat image, std::vector<cv::Mat> empty_parkings) {
     cv::Mat frame = image.clone();
     // Select the background that is most similar to the current frame from the bucket of empty parkings available
@@ -207,7 +242,13 @@ cv::Mat CarSegmentation::detectCars(cv::Mat image, std::vector<cv::Mat> empty_pa
 }
 
 
-
+/**
+ * Classify the cars in the frame.
+ * 
+ * @param mask Mask containing the detected cars.
+ * @param parkings Parking spots.
+ * @return Colored mask.
+ */
 cv::Mat CarSegmentation::classifyCars(cv::Mat &mask, std::vector<BBox> parkings) {
     cv::Mat colored_mask = mask.clone();
     cv::cvtColor(colored_mask, colored_mask, cv::COLOR_GRAY2BGR);

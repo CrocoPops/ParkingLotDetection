@@ -11,7 +11,7 @@
 namespace parsers {
 
     /**
-     * Custom XML parser (without using tinyxml2).
+     * Custom XML parser.
      * 
      * @param filename File path of the xml file.
      * @return Parsed vector of BBox.

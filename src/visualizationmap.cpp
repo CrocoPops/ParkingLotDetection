@@ -1,14 +1,30 @@
 #include "visualizationmap.h"
 #include <opencv2/opencv.hpp>
 
+/**
+ * Add a bounding box to the list of bounding boxes.
+ * 
+ * @param points 4 vertices of the bounding box.
+ */
 void VisualizationMap::addBBox(std::vector<cv::Point2f> points) {
     bboxes.push_back(points);
 }
 
+/**
+ * Get the list of bounding boxes.
+ * 
+ * @return List of bounding boxes.
+ */
 std::vector<std::vector<cv::Point2f>> VisualizationMap::getBBoxes() {
     return bboxes;
 }
 
+/**
+ * Color the bounding boxes on the map.
+ * 
+ * @param map Map to draw the bounding boxes on.
+ * @param bboxes Bounding boxes to draw.
+ */
 void VisualizationMap::colorBBoxes(cv::Mat &map, std::vector<BBox> bboxes) {
     for (int i = 0; i < bboxes.size(); i++) {
         // Get the 4 vertices of the rotated rectangle
@@ -26,6 +42,13 @@ void VisualizationMap::colorBBoxes(cv::Mat &map, std::vector<BBox> bboxes) {
     }
 }
 
+/**
+ * Draw the parking map on the frame.
+ * 
+ * @param frame Frame to draw the parking map on.
+ * @param bboxes Bounding boxes to draw.
+ * @return Frame with the parking map.
+ */
 cv::Mat VisualizationMap::drawParkingMap(cv::Mat &frame, std::vector<BBox> bboxes) {
     // Create a parking map (a smaller image)
     int mapHeight = frame.rows / 3;
@@ -55,34 +78,24 @@ cv::Mat VisualizationMap::drawParkingMap(cv::Mat &frame, std::vector<BBox> bboxe
     // Draw parking spots row by row
     for (int row = 0; row < 5; row++) {
         int spotsInRow;
-        if (row == 0 || row == 1) {
-            spotsInRow = 10;  // First two rows have 10 spots each
-        } else if (row == 2 || row == 3) {
-            spotsInRow = 9;   // Next two rows have 9 spots each
-        } else {
-            spotsInRow = 0;   // Last row has 3 spots
-        }
+        if (row == 0 || row == 1) spotsInRow = 10;  // First two rows have 10 spots each
+        else if (row == 2 || row == 3) spotsInRow = 9;   // Next two rows have 9 spots each
+        else spotsInRow = 0;   // Last row has 3 spots
 
         // Adjust start position for each row
         int rowStartX = startX;  // Horizontal start position
         int rowStartY = startY - (row * (rectSize.height + rowOffset));  // Vertical start position with basic offset
 
         // Apply extra padding between specific rows
-        if (row == 2) {
-            rowStartY -= extraOffset;  // Extra padding before the third row
-        } else if (row == 4) {
-            rowStartY -= extraOffset * 2;  // Extra padding before the fifth row
-        } else if (row == 3) {
-            rowStartY -= extraOffset;  // Compensate for overlap between third and fourth row
-        }
-
+        if (row == 2) rowStartY -= extraOffset;  // Extra padding before the third row
+        else if (row == 4) rowStartY -= extraOffset * 2;  // Extra padding before the fifth row
+        else if (row == 3) rowStartY -= extraOffset;  // Compensate for overlap between third and fourth row
 
         if(row == 2 || row == 4){
             angle = 45.0f;
             rowStartX += 10;
         }
         else angle = -45.0f;
-
 
         for (int i = 0; i < spotsInRow; i++) {
             int x = rowStartX - i * (rectSize.width - 5);  // Adjust horizontal spacing between spots
@@ -99,10 +112,8 @@ cv::Mat VisualizationMap::drawParkingMap(cv::Mat &frame, std::vector<BBox> bboxe
             addBBox(points);
 
             // Draw the rotated rectangle on the map
-            for (int j = 0; j < 4; j++) {
+            for (int j = 0; j < 4; j++)
                 cv::line(map, vertices[j], vertices[(j + 1) % 4], cv::Scalar(0, 0, 0), 3);
-                // cv::line(map_bbox, vertices[j], vertices[(j + 1) % 4], cv::Scalar(0, 0, 0), 3);
-            }
         }
     }
 
@@ -112,7 +123,7 @@ cv::Mat VisualizationMap::drawParkingMap(cv::Mat &frame, std::vector<BBox> bboxe
     colorBBoxes(map, bboxes);
     
     // Blend or copy the map onto the ROI
-    cv::add(roi, map, roi);
+    map.copyTo(roi);
     
     return frame;
 }
