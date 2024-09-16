@@ -1,4 +1,5 @@
 .vscode/
+output/
 
 CMakeFiles/
 cmake_install.cmake

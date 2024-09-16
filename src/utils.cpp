@@ -6,6 +6,7 @@
 #include <fstream>
 #include <filesystem>
 #include <string>
+#include <fstream>
 #include "bbox.h"
 
 namespace parsers {
@@ -81,7 +82,7 @@ namespace loaders {
      * @param output 2D vector to load the frames in (vec[sequence][frame]).
      * @return Number of frames loaded.
      */
-    int loadAllFrames(std::vector<std::vector<cv::Mat>>& output) {
+    int loadAllFrames(std::vector<std::vector<cv::Mat>>& output, std::vector<std::vector<std::string>>& dirs) {
 
         int framesCount = 0;
 
@@ -90,6 +91,7 @@ namespace loaders {
 
         for (int i = 0; i <= 5; i++) {
             path = "dataset/sequence" + std::to_string(i) + "/frames";
+            std::vector<std::string> sequence;
             if (std::filesystem::exists(path) && std::filesystem::is_directory(path)) {
                 std::vector<cv::Mat> images;
                 std::vector<std::string> imagePaths;
@@ -104,6 +106,11 @@ namespace loaders {
 
                 // Load images in sorted order
                 for (const auto& imagePath : imagePaths) {
+
+                    // Saving frame name
+                    std::filesystem::path path_string(imagePath);
+                    sequence.push_back(path_string.stem());
+
                     cv::Mat image = cv::imread(imagePath);
                     if (!image.empty()) {
                         images.push_back(image);
@@ -112,7 +119,7 @@ namespace loaders {
                         std::cerr << "Failed to load image: " << imagePath << std::endl;
                     }
                 }
-
+                dirs.push_back(sequence);
                 output.push_back(images);
             } else {
                 std::cerr << "Directory does not exist or is not a directory: " << path << std::endl;
@@ -255,5 +262,57 @@ namespace loaders {
         }
 
         return bboxesCount;
+    }
+}
+
+namespace savers{
+
+    /**
+     * Saves the image in the path.
+     * 
+     * @param image Image to save.
+     * @param path Path where to save the image.
+     */
+    void saveImage(cv::Mat image, std::string path) {
+
+        std::filesystem::path fs_path(path);
+
+        // Creating the folders if they dont exist
+        try {
+            std::filesystem::create_directories(fs_path.remove_filename().string());
+        } catch (const std::filesystem::filesystem_error e) {
+            std::cerr << "Something went wron creating directories!" << std::endl;
+        }
+
+        // Saving the image
+        cv::imwrite(path, image);
+    }
+
+    /**
+     * Saves the metrics in the path.
+     * 
+     * @param mAP mAP score to save.
+     * @param mIoU mIoU score to save.
+     * @param path Path where to save the metrics.
+     */
+    void saveMetrics(float mAP, float mIoU, std::string path) {
+        std::filesystem::path fs_path(path);
+
+        // Creating folders if they dont exist
+        try {
+            std::filesystem::create_directories(fs_path.remove_filename().string());
+        } catch (const std::filesystem::filesystem_error e) {
+            std::cerr << "Something went wron creating directories!" << std::endl;
+        }
+
+        // Writing the txt file
+        std::ofstream file(path);
+        if (file.is_open()) {
+            file << "mAP: " << mAP << std::endl;
+            file << "mIoU: " << mIoU << std::endl;
+            file.close();
+        } else {
+            std::cerr << "Unable to open file for writing." << std::endl;
+        }
     }
 }

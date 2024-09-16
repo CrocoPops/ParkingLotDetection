@@ -12,9 +12,10 @@
 int main(int argc, char** argv) {
 
     // Loading all frames
-    std::vector<std::vector<cv::Mat>> images;    
+    std::vector<std::vector<cv::Mat>> images;
+    std::vector<std::vector<std::string>> dirs; 
     std::cout << "Loading all frames..." << std::endl;
-    int framesCount = loaders::loadAllFrames(images);
+    int framesCount = loaders::loadAllFrames(images, dirs);
     std::cout << "Done!" << std::endl << "Total frames loaded: " << framesCount << std::endl << std::endl;
 
     // Loading all backgrounds used in segmentation
@@ -55,7 +56,7 @@ int main(int argc, char** argv) {
         float current_mAP = computeMAP(current_detected, realBBoxes[0][i], 0.5);
         mAPs.push_back(current_mAP);
 
-        std::cout << "mAP for sequence0 frame " << i + 1 << std::endl;
+        std::cout << "mAP for sequence0 frame " << dirs[0][i] << std::endl;
         std::cout << current_mAP << std::endl << std::endl;
 
         // Showing current result
@@ -104,9 +105,11 @@ int main(int argc, char** argv) {
             vm.drawParkingMap(parkingsWithMap, bestDetectedBBoxes);
 
             // Printing metrics
-            std::cout << "Metrics for sequence" << i << " frame " << j + 1 << std::endl;
-            std::cout << "mAP: " << computeMAP(bestDetectedBBoxes, realBBoxes[i][j], 0.5) << std::endl;
-            std::cout << "mIoU: " << computeMIoU(mask, realMasks[i][j]) << std::endl << std::endl;
+            float mAP = computeMAP(bestDetectedBBoxes, realBBoxes[i][j], 0.5);
+            float mIoU = computeMIoU(mask, realMasks[i][j]);
+            std::cout << "Metrics for sequence" << i << " frame " << dirs[i][j] << std::endl;
+            std::cout << "mAP: " << mAP << std::endl;
+            std::cout << "mIoU: " << mIoU << std::endl << std::endl;
 
             // Showing images
             cv::imshow("Parkings", current_image);
@@ -114,6 +117,15 @@ int main(int argc, char** argv) {
             cv::imshow("Segmented original", maskedImage);
             cv::imshow("Parkings + segmentation", maskedParkingsImage);
             cv::waitKey(0);
+
+            // Saving images
+            if(argc > 1 && strcmp(argv[0], "--save")) {
+                savers::saveImage(current_image, "output/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/parkings.jpg");
+                savers::saveImage(parkingsWithMap, "output/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/map.jpg");
+                savers::saveImage(maskedImage, "output/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/segmented.jpg");
+
+                savers::saveMetrics(mAP, mIoU, "output/sequence" + std::to_string(i) + "/" + dirs[i][j] +"/metrics.txt");
+            }
         }
     }
 
