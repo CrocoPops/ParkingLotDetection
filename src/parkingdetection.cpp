@@ -325,8 +325,8 @@ PARAM:
 
 cv::Vec4f ParkingDetection::mergeLineSegments(const cv::Vec4f &line_i, const cv::Vec4f &line_j) {
     // Calculate the lengths of the lines
-    double line_i_length = std::hypot(line_i[2] - line_i[0], line_i[3] - line_i[1]);
-    double line_j_length = std::hypot(line_j[2] - line_j[0], line_j[3] - line_j[1]);
+    double line_i_length = calculateLength(line_i);
+    double line_j_length = calculateLength(line_j);
 
     // Calculate the centroid
     double Xg = line_i_length * (line_i[0] + line_i[2]) + line_j_length * (line_j[0] + line_j[2]);
@@ -626,14 +626,6 @@ std::vector<BBox> ParkingDetection::createBoundingBoxes(cv::Mat frame, const std
             cv::Vec4f line1 = lines[i];
             cv::Vec4f line2 = lines[nearest_line_idx];
 
-            // Store the pair of lines as used
-            used_pairs.insert(std::make_pair(i, nearest_line_idx));
-            used_pairs.insert(std::make_pair(nearest_line_idx, i));
-
-            // Track the connections
-            line_connections[i]++;
-            line_connections[nearest_line_idx]++;
-
             cv::Vec4f merged_line = mergeLineSegments(line1, line2);
             cv::RotatedRect rotatedRect(cv::Point((merged_line[0] + merged_line[2]) / 2 - 10, (merged_line[1] + merged_line[3]) / 2 - 10), // Modify slightly the coordinates of the center
                                         cv::Size(calculateLength(merged_line), distanceBetweenSegments(line1, line2)),                 // For help then in parking classification
@@ -655,6 +647,14 @@ std::vector<BBox> ParkingDetection::createBoundingBoxes(cv::Mat frame, const std
                       false);  // Occupied is set to false
 
             bounding_boxes.push_back(bbox);
+
+            // Store the pair of lines as used
+            used_pairs.insert(std::make_pair(i, nearest_line_idx));
+            used_pairs.insert(std::make_pair(nearest_line_idx, i));
+
+            // Track the connections
+            line_connections[i]++;
+            line_connections[nearest_line_idx]++;
 
             found_valid_rectangle = true;
         }
@@ -881,7 +881,7 @@ PARAM:
 */
 
 
-std::vector<cv::Vec4f> ParkingDetection::enforceShortLines(std::vector<cv::Vec4f> lines, double threshold) {
+std::vector<cv::Vec4f> ParkingDetection::reinforceShortLines(std::vector<cv::Vec4f> lines, double threshold) {
     std::vector<cv::Vec4f> new_lines;
     for (const auto& line : lines) {
         cv::Vec4f new_line = line;
@@ -916,7 +916,7 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
 
     std::vector<cv::Vec4f> lines;
     lsd->detect(adaptive, lines);
-
+    
     // Sort the line's vertices based on their position in the image
     for (cv::Vec4f &line : lines) {
         if (line[0] > line[2]) {
@@ -932,10 +932,9 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
 
 
     std::vector<cv::Vec4f> merged_lines;
-    for (int i = 0; i < numComponents; ++i)
-    {
+    for (int i = 0; i < numComponents; i++) {
         std::vector<cv::Vec4f> cluster;
-        for (size_t j = 0; j < labels.size(); ++j)
+        for (size_t j = 0; j < labels.size(); j++)
             if (labels[j] == i)
                 cluster.push_back(lines[j]);
 
@@ -960,7 +959,7 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     // Kmeans clustering for filter the line based on the angle
     std::vector<cv::Vec4f> kmeans_lines = filterLinesByKMeans(longLines, 2, 30);
 
-
+    
     // Divide in 2 parts the lines too long (They are lines that include two parkings)
     lines = divideLongLines(kmeans_lines, 200, 30);    
 
@@ -975,13 +974,12 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     lines = deleteShortLines(lines, 22);
 
     // Enforce the short lines
-    lines = enforceShortLines(lines, 30.0);
-
+    lines = reinforceShortLines(lines, 30.0);
 
     int minDistanceThreshold = 20;
     int maxDistanceThreshold = 150;
     int maxAngleThreshold = 20;
-    double minAreaThreshold = 100;
+    double minAreaThreshold = 1500;
     double maxAreaThreshold = 20000;
 
 
@@ -1003,6 +1001,7 @@ std::vector<BBox> ParkingDetection::detect(const cv::Mat &frame) {
     }
 
     // Filter the real BBox deleting the ones that are not considered in the evaluation (the ones in the right part of the image)
+    // ONLY FOR METRICS EVALUATION
     cv::Point p1(870, 0);
     cv::Point p2(1275, 225);
 
