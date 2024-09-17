@@ -7,27 +7,27 @@ Parking lot analysis is an algorithm designed for detecting and classifying park
 ### To run the code:
 
 1. Navigate to the `build` folder:
-    
-    **cd build**
+
+   ```cd build```
    
 3. Execute the CMake configuration:
 
-   **cmake ..**
+   ```cmake ..```
    
 4. Build the project:
     
-    **make**
+    ```make```
    
 5. Return to the main folder:
     
-    **cd ..**
+    ```cd ..```
    
 6. Run the program:
 
-   **./ParkingLot_analysis**
+   ```./ParkingLot_analysis```
 
 ### To save the result images and metrics, run:
 
-  **./ParkingLot_analysis --save**
+  ```./ParkingLot_analysis --save```
 
-All files will be stored in the **results** folder.
+All files will be stored in the `results` folder.
