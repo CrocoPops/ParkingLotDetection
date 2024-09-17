@@ -68,6 +68,12 @@ void BBox::setOccupied(bool occupied) {
     this->occupied = occupied;
 }
 
+/**
+ * Sets the occupied attribute of the BBox object.
+ * 
+ * @param mask The mask obtained from the image segmentation
+ */
+
 void BBox::setOccupiedfromObtainedMask(cv::Mat &mask) {
     int x = this->getX();
     int y = this->getY();
